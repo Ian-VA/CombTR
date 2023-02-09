@@ -1,0 +1,16 @@
+{
+    "training": [
+        {
+            "image": "",
+            "label": ""
+        },
+        {
+            "image": "output_0.nii.gz",
+            "label": "label_0.nii.gz"
+        },
+        {
+            "image": "output_1.nii.gz",
+            "label": "label_1.nii.gz"
+        }
+    ]
+}
