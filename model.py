@@ -3,6 +3,7 @@ from typing import Sequence, Tuple, Union
 import torch.nn as nn
 
 from monai.networks.nets import UNETR
+from monai.networks.nets import unet
 from monai.networks.nets import swin_unetr
 
 class CombTR(nn.Module):
@@ -39,7 +40,7 @@ class CombTR(nn.Module):
         super().__init__()
 
         if hidden_size % num_heads != 0:
-            raise ValueError("Hidden_size should be divisible by num_heads.")
+            raise ValueError("hidden_size should be divisible by num_heads")
 
         self.unetrmodel1 = UNETR(
             in_channels=in_channels,

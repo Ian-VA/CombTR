@@ -12,7 +12,6 @@ import nibabel as nib
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 model = UNETR(
     in_channels=1,
     out_channels=3,
@@ -26,7 +25,6 @@ model = UNETR(
     res_block=True,
     dropout_rate=0.0,
 ).to(device)
-
 
 
 def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentationv2/stackingdata.json"):
