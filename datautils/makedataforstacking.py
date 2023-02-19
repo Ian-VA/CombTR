@@ -10,12 +10,11 @@ import json
 import numpy as np
 import nibabel as nib
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = UNETR(
     in_channels=1,
-    out_channels=3,
-    img_size=(128, 128, 128),
+    out_channels=14,
+    img_size=(96, 96, 96),
     feature_size=16,
     hidden_size=768,
     mlp_dim=3072,
@@ -24,7 +23,7 @@ model = UNETR(
     norm_name="instance",
     res_block=True,
     dropout_rate=0.0,
-).to(device)
+)
 
 
 def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentationv2/stackingdata.json"):
@@ -71,29 +70,37 @@ def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentation
 
 
 def plotdata(root_dir):
-    valdataset = get_valds()
-    case_num = 4
-    model.load_state_dict(torch.load(os.path.join(root_dir, "best_metric_model.pth")))
-    model.eval()
-    with torch.no_grad():
-        img_name = os.path.split(valdataset[case_num]["image"].meta["filename_or_obj"])[1]
-        img = valdataset[case_num]["image"]
-        label = valdataset[case_num]["label"]
-        val_inputs = torch.unsqueeze(img, 1).cuda()
-        val_labels = torch.unsqueeze(label, 1).cuda()
-        val_outputs = sliding_window_inference(val_inputs, (128, 128, 128), 4, model, overlap=0.8)
-        plt.figure("check", (18, 6))
-        plt.subplot(1, 3, 1)
-        plt.title("image")
-        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, 4], cmap="gray")
-        plt.subplot(1, 3, 2)
-        plt.title("label")
-        plt.imshow(val_labels.cpu().numpy()[0, 0, :, :, 4])
-        plt.subplot(1, 3, 3)
-        plt.title("output")
-        plt.imshow(torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, 4])
-        plt.show()
+    val_ds = get_valds()
+    slice_map = {
+        "img0035.nii.gz": 170,
+        "img0036.nii.gz": 230,
+        "img0037.nii.gz": 204,
+        "img0038.nii.gz": 204,
+        "img0039.nii.gz": 204,
+        "img0040.nii.gz": 180,
+    }
+    case_num = 2
+    img_name = os.path.split(val_ds[case_num]["image"].meta["filename_or_obj"])[1]
+    img = val_ds[case_num]["image"]
+    label = val_ds[case_num]["label"]
+    val_inputs = torch.unsqueeze(img, 1)
+    val_labels = torch.unsqueeze(label, 1)
+    val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 1, model, overlap=0.8)
+    plt.figure("image", (18, 6))
+    plt.subplot(1, 2, 1)
+    plt.title("image")
+    plt.imshow(img[0, :, :, slice_map[img_name]].detach().cpu(), cmap="gray")
+    print("yes")
+    plt.subplot(1, 2, 2)
+    plt.title("label")
+    plt.imshow(label[0, :, :, slice_map[img_name]].detach().cpu())
+    plt.subplot(1, 3, 3)
+    plt.title("output")
+    plt.imshow(torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_map[img_name]])
+    plt.show()
+
+
 
 
 if __name__ == "__main__":
-    make_stackingdata()
+    plotdata("C:/Users/mined/Downloads/")

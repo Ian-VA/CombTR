@@ -8,18 +8,17 @@ import torch
 from monai.data import decollate_batch
 from tqdm import tqdm
 from monai.transforms import AsDiscrete
-from datautils.getdataloader import getdataloaders, getdataloaderswdownload
+from datautils.getdataloader import getdataloaders
 import csv
 from metalearner import CombTRMetaLearner
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 model = UNETR(
     in_channels=1,
-    out_channels=3,
-    img_size=(128, 128, 128),
+    out_channels=14,
+    img_size=(96, 96, 96),
     feature_size=16,
     hidden_size=768,
     mlp_dim=3072,
@@ -27,20 +26,23 @@ model = UNETR(
     pos_embed="perceptron",
     norm_name="instance",
     res_block=True,
-    dropout_rate=0.1,
+    dropout_rate=0.0,
 ).to(device)
+
+model.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 
 
+
 def validation(epoch_iterator_val):
     model.eval()
     with torch.no_grad():
         for batch in epoch_iterator_val:
-            val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
-            val_outputs = sliding_window_inference(val_inputs, (128, 128, 128), 4, model)
+            val_inputs, val_labels = batch["image"], batch["label"]
+            val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 1, model)
             val_labels_list = decollate_batch(val_labels)
             val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
             val_outputs_list = decollate_batch(val_outputs)
@@ -59,7 +61,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
     epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
     for step, batch in enumerate(epoch_iterator):
         step += 1
-        x, y = (batch["image"].cuda(), batch["label"].cuda())
+        x, y = (batch["image"], batch["label"])
         logit_map = model(x)
         loss = loss_function(logit_map, y)
         loss.backward()
@@ -93,7 +95,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 if __name__ == '__main__':
     datadir = "C:/Users/mined/Desktop/projects/segmentationv2/" # replace with your dataset directory
     max_iterations = 25000
-    eval_num = 500
+    eval_num = 1
     post_label = AsDiscrete(to_onehot=14)
     post_pred = AsDiscrete(argmax=True, to_onehot=14)
     dice_metric = DiceMetric(include_background=True, reduction="mean", get_not_nans=False)
@@ -103,7 +105,7 @@ if __name__ == '__main__':
     epoch_loss_values = []
     metric_values = []
 
-    train_loader, val_loader = getdataloaderswdownload()
+    train_loader, val_loader = getdataloaders()
     while global_step < max_iterations:
         global_step, dice_val_best, global_step_best = train(global_step, train_loader, val_loader, dice_val_best, global_step_best)
 

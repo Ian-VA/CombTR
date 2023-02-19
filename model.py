@@ -57,35 +57,13 @@ class CombTR(nn.Module):
             qkv_bias=qkv_bias
         )
 
-        self.unetrmodel2 = UNETR(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            img_size=img_size,
-            feature_size=feature_size,
-            hidden_size=hidden_size,
-            mlp_dim=mlp_dim,
-            num_heads=num_heads,
-            pos_embed=pos_embed,
-            norm_name=norm_name,
-            dropout_rate=dropout_rate,
-            spatial_dims=spatial_dims,
-            qkv_bias=qkv_bias
-        )
-
+ 
         self.swinunetr = swin_unetr(
             img_size=img_size,
             in_channels=in_channels,
             out_channels=out_channels,
             feature_size=feature_size
         )
-
-        self.swinunetr2 = swin_unetr(
-            img_size=img_size,
-            in_channels=in_channels,
-            out_channels=out_channels,
-            feature_size=feature_size
-        )
-
 
     def forward(self, x_in):
         return x_in
