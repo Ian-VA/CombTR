@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from monai.networks.nets import UNETR
 from monai.networks.nets import unet
-from monai.networks.nets import swin_unetr
+from monai.networks.nets import SwinUNETR
 
 class CombTR(nn.Module):
     def __init__(
@@ -58,7 +58,7 @@ class CombTR(nn.Module):
         )
 
  
-        self.swinunetr = swin_unetr(
+        self.swinunetr = SwinUNETR(
             img_size=img_size,
             in_channels=in_channels,
             out_channels=out_channels,

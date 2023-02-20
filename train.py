@@ -2,7 +2,7 @@ import os
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
-from monai.networks.nets import UNETR
+from monai.networks.nets import UNETR, SwinUNETR, UNet, SegResNet
 from monai.apps import DecathlonDataset
 import torch
 from monai.data import decollate_batch
@@ -11,6 +11,7 @@ from monai.transforms import AsDiscrete
 from datautils.getdataloader import getdataloaders
 import csv
 from metalearner import CombTRMetaLearner
+from torchvision.models.segmentation import deeplabv3_resnet50
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -29,7 +30,34 @@ model = UNETR(
     dropout_rate=0.0,
 ).to(device)
 
-model.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+model2 = SegResNet(
+    spatial_dims=3,
+    in_channels=1,
+    out_channels=14,
+    init_filters=16
+).to(device)
+
+model3 = UNet(
+    spatial_dims=3,
+    in_channels=1,
+    out_channels=14,
+    channels=(16, 32, 64, 128, 256),
+    strides=(2, 2, 2, 2),
+    num_res_units=2,
+).to(device)
+
+
+model1 = SwinUNETR(
+    img_size=(96, 96, 96),
+    in_channels=1,
+    out_channels=14,
+    feature_size=48,
+    use_checkpoint=True,
+).to(device)
+
+#model.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+#model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Desktop/projects/segmentationv2/", "swinUNETR.pt"), map_location=torch.device('cpu')), strict=False)
+
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
@@ -38,11 +66,11 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 
 
 def validation(epoch_iterator_val):
-    model.eval()
+    model2.eval()
     with torch.no_grad():
         for batch in epoch_iterator_val:
             val_inputs, val_labels = batch["image"], batch["label"]
-            val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 1, model)
+            val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2)
             val_labels_list = decollate_batch(val_labels)
             val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
             val_outputs_list = decollate_batch(val_outputs)
@@ -55,22 +83,22 @@ def validation(epoch_iterator_val):
 
 
 def train(global_step, train_loader, val_loader, dice_val_best, global_step_best):
-    model.train()
+    model2.train()
     epoch_loss = 0
     step = 0
-    epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
+    epoch_iterator = tqdm(train_loader, desc="Training (loss=X.X)", dynamic_ncols=True)
     for step, batch in enumerate(epoch_iterator):
         step += 1
         x, y = (batch["image"], batch["label"])
-        logit_map = model(x)
+        logit_map = model2(x)
         loss = loss_function(logit_map, y)
         loss.backward()
         epoch_loss += loss.item()
         optimizer.step()
         optimizer.zero_grad()
-        epoch_iterator.set_description("Training (%d / %d Steps) (loss=%2.5f)" % (global_step, max_iterations, loss))
+        epoch_iterator.set_description("Training (loss=%2.5f)" % (loss))
         if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
-            epoch_iterator_val = tqdm(val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True)
+            epoch_iterator_val = tqdm(val_loader, desc="Validation (dice=X.X)", dynamic_ncols=True)
             dice_val = validation(epoch_iterator_val)
             epoch_loss /= step
             epoch_loss_values.append(epoch_loss)
@@ -78,7 +106,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
             if dice_val > dice_val_best:
                 dice_val_best = dice_val
                 global_step_best = global_step
-                torch.save(model.state_dict(), os.path.join(datadir, "best_metric_model.pth"))
+                torch.save(model2.state_dict(), os.path.join(datadir, "best_DenseNet.pth"))
                 print(
                     "Saved Model! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
                 )
