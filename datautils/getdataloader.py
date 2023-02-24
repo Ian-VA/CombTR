@@ -184,3 +184,24 @@ def get_valds():
     
     return val_ds
 
+def get_noprocess():
+    transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys=["image", "label"]),
+
+            Spacingd(
+                keys=["image", "label"],
+                pixdim=(1.5, 1.5, 2.0),
+                mode=("bilinear", "nearest"),
+            ),
+
+        ]
+    )
+
+    datadir = "C:/Users/mined/Downloads/data/"
+    json = "dataset_0.json"
+    datasets = datadir + json
+    files = load_decathlon_datalist(datasets, True, "validation")
+    ds = Dataset(data=files, transform=transforms)
+    return ds

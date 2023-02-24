@@ -1,0 +1,28 @@
+{
+    "training": [
+        {
+            "image": "stufflol",
+            "label": "stufflol"
+        },
+        {
+            "image": "output_0.nii.gz",
+            "label": "label_0.nii.gz"
+        },
+        {
+            "image": "output_2.nii.gz",
+            "label": "label_2.nii.gz"
+        },
+        {
+            "image": "output_0.nii.gz",
+            "label": "label_0.nii.gz"
+        },
+        {
+            "image": "output_0.nii.gz",
+            "label": "label_0.nii.gz"
+        },
+        {
+            "image": "output_1.nii.gz",
+            "label": "label_1.nii.gz"
+        }
+    ]
+}

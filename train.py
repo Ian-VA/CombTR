@@ -55,8 +55,9 @@ model1 = SwinUNETR(
     use_checkpoint=True,
 ).to(device)
 
-#model.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-#model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Desktop/projects/segmentationv2/", "swinUNETR.pt"), map_location=torch.device('cpu')), strict=False)
+model.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "swinUNETR.pt"), map_location=torch.device('cpu')), strict=False)
+model2.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "bestSEGRESNET.pt"), map_location=torch.device('cpu')), strict=False)
 
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
