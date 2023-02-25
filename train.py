@@ -24,7 +24,7 @@ model1 = SwinUNETR(
     use_checkpoint=True,
 ).to(device)
 
-model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "swinUNETR.pt"), map_location=torch.device('cpu')), strict=False)
+model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_swinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
 
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 

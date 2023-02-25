@@ -2,9 +2,11 @@ from typing import Sequence, Tuple, Union
 
 import torch.nn as nn
 
-from monai.networks.nets import UNETR
-from monai.networks.nets import unet
-from monai.networks.nets import SwinUNETR
+from monai.networks.nets import UNETR, SwinUNETR, SegResNet
+from metalearner import CombTRMetaLearner
+import torch as torch
+import numpy as np
+from monai.inferers import sliding_window_inference
 
 class CombTR(nn.Module):
     def __init__(
@@ -42,7 +44,7 @@ class CombTR(nn.Module):
         if hidden_size % num_heads != 0:
             raise ValueError("hidden_size should be divisible by num_heads")
 
-        self.unetrmodel1 = UNETR(
+        self.unetr = UNETR(
             in_channels=in_channels,
             out_channels=out_channels,
             img_size=img_size,
@@ -65,5 +67,29 @@ class CombTR(nn.Module):
             feature_size=feature_size
         )
 
+        self.segresnet = SegResNet(
+            spatial_dims=spatial_dims,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            init_filters=16
+        )
+        
+        self.meta = CombTRMetaLearner(
+            n_channels=in_channels*3,
+            n_classes=out_channels
+        )
+
     def forward(self, x_in):
-        return x_in
+        x_out1 = sliding_window_inference(x_in, (96, 96, 96), 1, self.unetr)
+        x_out2 = sliding_window_inference(x_in, (96, 96, 96), 1, self.swinunetr)
+        x_out3 = sliding_window_inference(x_in, (96, 96, 96), 1, self.segresnet)
+
+        x_combined = [x_out1, x_out2, x_out3]
+        x_cat = torch.cat(tuple(x_combined), dim=0)
+
+        x_cat = torch.softmax(x_cat, 1).cpu().numpy()
+        x_cat = np.argmax(x_cat, axis=1).astype(np.uint8)[0]
+
+        return self.meta(x_cat)
+
+

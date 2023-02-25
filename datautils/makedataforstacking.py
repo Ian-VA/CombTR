@@ -52,19 +52,11 @@ model1 = SwinUNETR(
     use_checkpoint=True,
 ).to(device)
 
-model.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "swinUNETR.pt"), map_location=torch.device('cpu')), strict=False)
-model2.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
+model.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth"), strict=False))
+model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth"), strict=False))
+model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth"), strict=False))
 
-def resample_3d(img, target_size):
-    imx, imy, imz = img.shape
-    tx, ty, tz = target_size
-    zoom_ratio = (float(tx) / float(imx), float(ty) / float(imy), float(tz) / float(imz))
-    print(zoom_ratio)
-    img_resampled = ndimage.zoom(img, zoom_ratio, order=0, prefilter=False)
-    return img_resampled
-
-def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentationv2/stackingdata.json"):
+def make_stackingdata(jsonfilename="./stackingdata.json"):
     trainloader, _= getdataloaders()
     model.eval()
     model1.eval()
@@ -81,30 +73,29 @@ def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentation
             print(img_name)
 
             val_inputs, val_labels = (batch["image"], batch["label"])
-            _, _, h, w, d = val_labels.shape
-            target_shape = (h, w, d)
             val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model)
             val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1)
             val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2)
 
             valalloutputs = [val_outputs1, val_outputs2, val_outputs3]
-
-            for i in range(3):
-                valalloutputs[i] = torch.softmax(valalloutputs[i], 1).cpu().numpy()
-                valalloutputs[i] = np.argmax(valalloutputs[i], axis=1).astype(np.uint8)[0]
-
-            val_labels = val_labels.cpu().numpy()[0, 0, :, :, :]
             val_outputs = torch.cat(tuple(valalloutputs), dim=0)
+            print(val_outputs1.shape)
+            print(val_outputs.shape)
+            val_outputs = torch.softmax(val_outputs, 1).cpu().numpy()
+            val_outputs = np.argmax(val_outputs, axis=1).astype(np.uint8)[0]
+            val_labels = val_labels.cpu().numpy()[0, 0, :, :, :]
 
 
             nib.save(
-                nib.Nifti1Image(valalloutputs[0].astype(np.uint8), original_affine),
-                "C:/Users/mined/Downloads/stackingdata/imagesTr/image_" + str(i) + ".nii.gz"
+                nib.Nifti1Image(val_outputs.astype(np.uint8), original_affine),
+                "./imagesTr/image_" + str(i) + ".nii.gz"
             )
+
+            #"C:/Users/mined/Downloads/stackingdata/imagesTr/image_" + str(i) + ".nii.gz"
 
             nib.save(
                 nib.Nifti1Image(val_labels, original_affine),
-                "C:/Users/mined/Downloads/stackingdata/labelsTr/label_" + str(i) + ".nii.gz"
+                "./labelsTr/label_" + str(i) + ".nii.gz"
             )
 
             jsonfile = []
