@@ -60,6 +60,7 @@ def resample_3d(img, target_size):
     imx, imy, imz = img.shape
     tx, ty, tz = target_size
     zoom_ratio = (float(tx) / float(imx), float(ty) / float(imy), float(tz) / float(imz))
+    print(zoom_ratio)
     img_resampled = ndimage.zoom(img, zoom_ratio, order=0, prefilter=False)
     return img_resampled
 
@@ -76,37 +77,42 @@ def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentation
 
 
             original_affine = batch["label_meta_dict"]["affine"][0].numpy()
+            img_name = os.path.split(batch["label"].meta["filename_or_obj"][0])[1]
+            print(img_name)
+
             val_inputs, val_labels = (batch["image"], batch["label"])
             _, _, h, w, d = val_labels.shape
             target_shape = (h, w, d)
             val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model)
-            val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model)
+            val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1)
             val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2)
 
-            val_outputs1 = torch.softmax(val_outputs1, 1).cpu().numpy()
-            val_outputs1 = np.argmax(val_outputs1, axis=1).astype(np.uint8)[0]
+            valalloutputs = [val_outputs1, val_outputs2, val_outputs3]
+
+            for i in range(3):
+                valalloutputs[i] = torch.softmax(valalloutputs[i], 1).cpu().numpy()
+                valalloutputs[i] = np.argmax(valalloutputs[i], axis=1).astype(np.uint8)[0]
+
             val_labels = val_labels.cpu().numpy()[0, 0, :, :, :]
-            val_outputs1 = resample_3d(val_outputs1, target_shape)
+            val_outputs = torch.cat(tuple(valalloutputs), dim=0)
+
 
             nib.save(
-                nib.Nifti1Image(val_outputs1.astype(np.uint8), original_affine),
+                nib.Nifti1Image(valalloutputs[0].astype(np.uint8), original_affine),
+                "C:/Users/mined/Downloads/stackingdata/imagesTr/image_" + str(i) + ".nii.gz"
+            )
+
+            nib.save(
+                nib.Nifti1Image(val_labels, original_affine),
                 "C:/Users/mined/Downloads/stackingdata/labelsTr/label_" + str(i) + ".nii.gz"
             )
 
-          #  val_outputs = torch.cat((val_outputs1, val_outputs2, val_outputs3), dim=0)
-
             jsonfile = []
-           # nifti = nib.Nifti1Image(val_outputs, affine=original_affine)
-           # niftilabel = nib.Nifti1Image(val_labels, affine=original_affine)
-
-            #nib.save(nifti, "C:/Users/mined/Downloads/stackingdata/imagesTr/output_" + str(i) + ".nii.gz")
-           # nib.save(niftilabel, "C:/Users/mined/Downloads/stackingdata/labelsTr/label_" + str(i) + ".nii.gz")
-
 
 
             with open(jsonfilename, "r+", encoding='utf-8') as js:
                 dicttoappend = {
-                    "image" : "output_" + str(i) + ".nii.gz",
+                    "image" : "image_" + str(i) + ".nii.gz",
                     "label" : "label_" + str(i) + ".nii.gz"
                 }
 
@@ -134,19 +140,14 @@ def plotdata(root_dir):
         "img0039.nii.gz": 204,
         "img0040.nii.gz": 180,
     }
-    case_num = 0
-    img_name = os.path.split(val_ds[case_num]["image"].meta["filename_or_obj"])[1]
-    img = val_ds[case_num]["image"]
-    label = no_process_ds[case_num]["image"]
+
+    nifti = nib.load("C:/Users/mined/Downloads/stackingdata/labelsTr/label_2.nii.gz").get_fdata()
+    
     plt.figure("image", (18, 6))
     plt.subplot(1, 2, 1)
     plt.title("After Preprocessing")
-    plt.imshow(img[0, :, :, slice_map[img_name]].detach().cpu(), cmap="gray")
-    plt.subplot(1, 2, 2)
-    plt.title("Before Preprocessing")
-    plt.imshow(label[0, :, :, slice_map[img_name]].detach().cpu(), cmap="gray")
+    plt.imshow(nifti[:, :, 59])
     plt.show()
-
 
 
 

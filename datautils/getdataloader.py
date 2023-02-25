@@ -189,13 +189,6 @@ def get_noprocess():
         [
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys=["image", "label"]),
-
-            Spacingd(
-                keys=["image", "label"],
-                pixdim=(1.5, 1.5, 2.0),
-                mode=("bilinear", "nearest"),
-            ),
-
         ]
     )
 
