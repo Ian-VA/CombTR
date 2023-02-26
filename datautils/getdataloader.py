@@ -96,12 +96,12 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
     datalist = load_decathlon_datalist(datasets, True, "training")
     val_files = load_decathlon_datalist(datasets, True, "validation")
 
-    train_ds = Dataset(data = datalist, transform = val_transforms)
+    train_ds = Dataset(data = datalist, transform = train_transforms)
     val_ds = Dataset(data=val_files, transform=val_transforms)
 
     train_loader = DataLoader(
         train_ds, 
-        batch_size=1, 
+        batch_size=2, 
         shuffle=True,
         num_workers=4, 
         pin_memory=True
@@ -109,7 +109,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     val_loader = DataLoader(
         val_ds, 
-        batch_size=1, 
+        batch_size=2, 
         shuffle=False, 
         num_workers=4, 
         pin_memory=True
