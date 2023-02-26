@@ -43,7 +43,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
                 spatial_size=(96, 96, 96),
                 pos=1,
                 neg=1,
-                num_samples=4,
+                num_samples=2,
                 image_key="image",
                 image_threshold=0,
             ),
@@ -90,7 +90,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
     )
 
 
-    datadir = "C:/Users/mined/Downloads/data/"
+    datadir = "data/"
     json = "dataset_0.json"
     datasets = datadir + json
     datalist = load_decathlon_datalist(datasets, True, "training")
@@ -101,17 +101,17 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     train_loader = DataLoader(
         train_ds, 
-        batch_size=2, 
+        batch_size=1, 
         shuffle=True,
-        num_workers=4, 
+        num_workers=2, 
         pin_memory=True
     )
 
     val_loader = DataLoader(
         val_ds, 
-        batch_size=2, 
+        batch_size=1, 
         shuffle=False, 
-        num_workers=4, 
+        num_workers=2, 
         pin_memory=True
     )
 

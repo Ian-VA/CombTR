@@ -13,6 +13,7 @@ import csv
 from metalearner import CombTRMetaLearner
 from torchvision.models.segmentation import deeplabv3_resnet50
 from model import CombTR
+import pandas as pd
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -84,6 +85,18 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 
 
 if __name__ == '__main__':
+    epoch_loss_values = [0.5, 0.4, 0.2]
+    metric_values = [0.6, 0.4, 0.6]
+
+    df = pd.DataFrame(epoch_loss_values)
+
+    df.to_csv("validationdice.csv", index=False)
+
+    with open("loss.csv", 'w') as f:
+        write = csv.writer(f)
+        write.writerow(["LOSS"])
+        write.writerows(epoch_loss_values)
+
     datadir = "C:/Users/mined/Desktop/projects/segmentationv2/" # replace with your dataset directory
     max_iterations = 25000
     eval_num = 1
