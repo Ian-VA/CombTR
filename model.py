@@ -5,6 +5,7 @@ import torch.nn as nn
 from monai.networks.nets import UNETR, SwinUNETR, SegResNet
 from metalearner import CombTRMetaLearner
 import torch as torch
+import os
 import numpy as np
 from monai.inferers import sliding_window_inference
 
@@ -79,17 +80,20 @@ class CombTR(nn.Module):
             n_classes=out_channels
         )
 
+        self.swinunetr.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth")), strict=False)
+        self.segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")), strict=False)
+        self.unetr.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth")), strict=False)
+        self.meta.load_state_dict(torch.load(os.path.join("./", "best_CombTRb.pth")), strict=False)
+
+
     def forward(self, x_in):
-        x_out1 = sliding_window_inference(x_in, (96, 96, 96), 1, self.unetr)
-        x_out2 = sliding_window_inference(x_in, (96, 96, 96), 1, self.swinunetr)
-        x_out3 = sliding_window_inference(x_in, (96, 96, 96), 1, self.segresnet)
+        x_out1 = self.unetr(x_in)
+        x_out2 = self.swinunetr(x_in)
+        x_out3 = self.segresnet(x_in)
 
-        x_combined = [x_out1, x_out2, x_out3]
-        x_cat = torch.cat(tuple(x_combined), dim=0)
+        x_out = torch.stack((x_out1, x_out2, x_out3), 1)
+        x_out = torch.mean(x_out, dim = 1)
 
-        x_cat = torch.softmax(x_cat, 1).cpu().numpy()
-        x_cat = np.argmax(x_cat, axis=1).astype(np.uint8)[0]
-
-        return self.meta(x_cat)
+        return self.meta(x_out)
 
 

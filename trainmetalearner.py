@@ -70,6 +70,7 @@ optimizer = torch.optim.AdamW(trainmodel.parameters(), lr=1e-4, weight_decay=1e-
 model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth")), strict=False)
 model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")), strict=False)
 model3.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth")), strict=False)
+trainmodel.load_state_dict(torch.load(os.path.join("./", "best_CombTRb.pth")), strict=False)
 
 def validation(epoch_iterator_val):
     trainmodel.eval()
@@ -96,13 +97,13 @@ def validation(epoch_iterator_val):
     return mean_dice_val
 
 
-def train(global_step, train_loader, val_loader, dice_val_best, global_step_best):
+def train(global_step, train_loader, val_loader, dice_val_best, global_step_best, loss_best):
     trainmodel.train()
     epoch_loss = 0
     step = 0
     grad_accums = 16
 
-    epoch_iterator = tqdm(train_loader, desc="Training (loss=X.X)", dynamic_ncols=True)
+    epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
     for step, batch in enumerate(epoch_iterator):
         step += 1
         x, y = (batch["image"].cuda(), batch["label"].cuda())
@@ -124,8 +125,14 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
         epoch_loss += loss.item()
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
-
-        epoch_iterator.set_description("Training (loss=%2.5f)" % (loss))
+        
+        if (loss.item() < loss_best):
+            loss_best = loss.item()
+            torch.save(trainmodel.state_dict(), os.path.join(datadir, "best_CombTRa.pth"))
+            print("SAVED MODEL!")
+        
+        
+        epoch_iterator.set_description("Training (%d / %d Steps) (loss=%2.5f)" % (global_step, max_iterations, loss))
         if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
             epoch_iterator_val = tqdm(val_loader, desc="Validation (dice=X.X)", dynamic_ncols=True)
             dice_val = validation(epoch_iterator_val)
@@ -135,7 +142,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
             if dice_val > dice_val_best:
                 dice_val_best = dice_val
                 global_step_best = global_step
-                torch.save(trainmodel.state_dict(), os.path.join(datadir, "best_CombTR.pth"))
+                torch.save(trainmodel.state_dict(), os.path.join(datadir, "best_CombTRb.pth"))
                 print(
                     "Saved Model! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
                 )
@@ -146,7 +153,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
                     )
                 )
         global_step += 1
-    return global_step, dice_val_best, global_step_best
+    return global_step, dice_val_best, global_step_best, loss_best
 
 
 
@@ -208,12 +215,13 @@ if __name__ == "__main__":
     global_step = 0
     dice_val_best = 0.0
     global_step_best = 0
+    loss_best = 99.9
     epoch_loss_values = []
     metric_values = []
     train_loader, val_loader = getdataloaders()
     
     while (global_step < max_iterations):
-        train(global_step, train_loader, val_loader, dice_val_best, global_step_best)
+        global_step, dice_val_best, global_step_best, loss_best = train(global_step, train_loader, val_loader, dice_val_best, global_step_best, loss_best)
         
     df = pd.DataFrame(epoch_loss_values)
     df.to_csv("epochloss.csv", index=False)
