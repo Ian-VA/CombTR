@@ -65,7 +65,7 @@ class CombTR(nn.Module):
             img_size=img_size,
             in_channels=in_channels,
             out_channels=out_channels,
-            feature_size=feature_size
+            feature_size=48
         )
 
         self.segresnet = SegResNet(
@@ -76,14 +76,14 @@ class CombTR(nn.Module):
         )
         
         self.meta = CombTRMetaLearner(
-            n_channels=in_channels*3,
+            n_channels=14,
             n_classes=out_channels
         )
 
-        self.swinunetr.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth")), strict=False)
-        self.segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")), strict=False)
-        self.unetr.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth")), strict=False)
-        self.meta.load_state_dict(torch.load(os.path.join("./", "best_CombTRb.pth")), strict=False)
+        self.swinunetr.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_swinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
+        self.segresnet.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
+        self.unetr.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+        self.meta.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_CombTRc.pth"), map_location=torch.device('cpu')), strict=False)
 
 
     def forward(self, x_in):
@@ -92,7 +92,7 @@ class CombTR(nn.Module):
         x_out3 = self.segresnet(x_in)
 
         x_out = torch.stack((x_out1, x_out2, x_out3), 1)
-        x_out = torch.mean(x_out, dim = 1)
+        x_out = torch.mean(x_out, dim=1)
 
         return self.meta(x_out)
 

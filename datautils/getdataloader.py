@@ -101,7 +101,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     train_loader = DataLoader(
         train_ds, 
-        batch_size=1, 
+        batch_size=2, 
         shuffle=True,
         num_workers=2, 
         pin_memory=True
@@ -109,7 +109,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     val_loader = DataLoader(
         val_ds, 
-        batch_size=1, 
+        batch_size=2, 
         shuffle=False, 
         num_workers=2, 
         pin_memory=True

@@ -18,13 +18,39 @@ import pandas as pd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model = CombTRMetaLearner(
-    n_channels=14,
-    n_classes=14,
-)
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
+
+model1 = UNETR(
+    in_channels=in_channels,
+    out_channels=out_channels,
+    img_size=img_size,
+    feature_size=feature_size,
+    hidden_size=hidden_size,
+    mlp_dim=mlp_dim,
+    num_heads=num_heads,
+    pos_embed=pos_embed,
+    norm_name=norm_name,
+    dropout_rate=dropout_rate,
+    spatial_dims=spatial_dims,
+    qkv_bias=qkv_bias
+)
+
+model2 = SwinUNETR(
+    img_size=(96, 96, 96),
+    in_channels=in_channels,
+    out_channels=out_channels,
+    feature_size=48
+)
+
+model = SegResNet(
+    spatial_dims=spatial_dims,
+    in_channels=in_channels,
+    out_channels=out_channels,
+    init_filters=16
+)
+
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 
 
@@ -85,18 +111,6 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 
 
 if __name__ == '__main__':
-    epoch_loss_values = [0.5, 0.4, 0.2]
-    metric_values = [0.6, 0.4, 0.6]
-
-    df = pd.DataFrame(epoch_loss_values)
-
-    df.to_csv("validationdice.csv", index=False)
-
-    with open("loss.csv", 'w') as f:
-        write = csv.writer(f)
-        write.writerow(["LOSS"])
-        write.writerows(epoch_loss_values)
-
     datadir = "C:/Users/mined/Desktop/projects/segmentationv2/" # replace with your dataset directory
     max_iterations = 25000
     eval_num = 1

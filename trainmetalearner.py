@@ -28,12 +28,21 @@ from monai.transforms import (
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+trainmodel = SegResNet(
+    spatial_dims=3,
+    in_channels=14,
+    out_channels=14,
+    init_filters=16
+).to(device)
+
+
 model2 = SegResNet(
     spatial_dims=3,
     in_channels=1,
     out_channels=14,
     init_filters=16
 ).to(device)
+
 
 model1 = SwinUNETR(
     img_size=(96, 96, 96),
@@ -57,20 +66,14 @@ model3 = UNETR(
     dropout_rate=0.0,
 ).to(device)
 
-trainmodel = CombTRMetaLearner(
-    n_channels=14,
-    n_classes=14
-).to(device)
-
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
+
 optimizer = torch.optim.AdamW(trainmodel.parameters(), lr=1e-4, weight_decay=1e-5)
 
-
 model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth")), strict=False)
-model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")), strict=False)
 model3.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth")), strict=False)
-trainmodel.load_state_dict(torch.load(os.path.join("./", "best_CombTRb.pth")), strict=False)
+model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")), strict=False)
 
 def validation(epoch_iterator_val):
     trainmodel.eval()
@@ -101,7 +104,6 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
     trainmodel.train()
     epoch_loss = 0
     step = 0
-    grad_accums = 16
 
     epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
     for step, batch in enumerate(epoch_iterator):
@@ -124,7 +126,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
         loss.backward()
         epoch_loss += loss.item()
         optimizer.step()
-        optimizer.zero_grad(set_to_none=True)
+        optimizer.zero_grad()
         
         if (loss.item() < loss_best):
             loss_best = loss.item()
@@ -159,9 +161,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 
 def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentationv2/stackingdata.json"):
     trainloader, val_loader = getdataloaders()
-    model.eval()
-    model1.eval()
-    model2.eval()
+
     i = 0
     with torch.no_grad():
         for step, batch in enumerate(val_loader):
@@ -169,7 +169,7 @@ def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentation
                 raise Exception("json datafile not found")
 
             val_inputs, val_labels = (batch["image"], batch["label"])
-            val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model)
+            val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3)
             val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1)
             val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2)
 
