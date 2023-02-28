@@ -28,11 +28,12 @@ from monai.transforms import (
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-trainmodel = SegResNet(
-    spatial_dims=3,
+trainmodel = SwinUNETR(
+    img_size=(96, 96, 96),
     in_channels=14,
     out_channels=14,
-    init_filters=16
+    feature_size=48,
+    use_checkpoint=True,
 ).to(device)
 
 
@@ -77,26 +78,34 @@ model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")), stri
 
 def validation(epoch_iterator_val):
     trainmodel.eval()
+    model1.eval()
+    model2.eval()
+    model3.eval()
     with torch.no_grad():
         for batch in epoch_iterator_val:
-            val_inputs, val_labels = batch["image"].cuda(), batch["label"].cuda()
-            val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1)
-            val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2)
-            val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3)
-            
             with autocast():
+                val_inputs, val_labels = batch["image"].cpu(), batch["label"].cpu()
+                val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, sw_device="cuda", device="cpu")
+                val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, sw_device="cuda", device="cpu")
+                val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3, sw_device="cuda", device="cpu")
+
                 valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)
                 val_outputs = torch.mean(valalloutputs, dim=1)
             
-            val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, trainmodel)
-            val_labels_list = decollate_batch(val_labels)
-            val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
-            val_outputs_list = decollate_batch(val_outputs)
-            val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
-            dice_metric(y_pred=val_output_convert, y=val_labels_convert)
+                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, trainmodel,  sw_device="cuda", device="cpu")
+                val_labels_list = decollate_batch(val_labels)
+                val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
+                
+                
+                val_outputs_list = decollate_batch(val_outputs)
+                val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
+                                
+                
+                dice_metric(y_pred=val_output_convert, y=val_labels_convert)
             epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (global_step, 10.0))
         mean_dice_val = dice_metric.aggregate().item()
         dice_metric.reset()
+        
     return mean_dice_val
 
 
@@ -110,29 +119,23 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
         step += 1
         x, y = (batch["image"].cuda(), batch["label"].cuda())
         
-        with autocast():
-            val_outputs1 = model1(x)
-            val_outputs2 = model2(x)
-            val_outputs3 = model3(x)
+        val_outputs1 = model1(x)
+        val_outputs2 = model2(x)
+        val_outputs3 = model3(x)
+        
+        valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)              
+        val_outputs = torch.mean(valalloutputs, dim=1)
 
-            valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)
-            val_outputs = torch.mean(valalloutputs, dim=1)
-        
-        
-            val_outputs = trainmodel(val_outputs)
-            loss = loss_function(val_outputs, y)
-            
+
+        val_outputs = trainmodel(val_outputs)
+        loss = loss_function(val_outputs, y)
+
         
         loss.backward()
         epoch_loss += loss.item()
         optimizer.step()
         optimizer.zero_grad()
-        
-        if (loss.item() < loss_best):
-            loss_best = loss.item()
-            torch.save(trainmodel.state_dict(), os.path.join(datadir, "best_CombTRa.pth"))
-            print("SAVED MODEL!")
-        
+        val_outputs.detach().cpu()
         
         epoch_iterator.set_description("Training (%d / %d Steps) (loss=%2.5f)" % (global_step, max_iterations, loss))
         if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
