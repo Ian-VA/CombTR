@@ -1,8 +1,0 @@
-{
-    "training": [
-        {
-            "image": "image_2.nii.gz",
-            "label": "label_2.nii.gz"
-        }
-    ]
-}
