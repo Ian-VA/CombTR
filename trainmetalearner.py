@@ -74,10 +74,10 @@ torch.backends.cudnn.benchmark = True
 
 optimizer = torch.optim.AdamW(trainmodel.parameters(), lr=1e-4, weight_decay=1e-5)
 
-model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_swinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
-model3.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-model2.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
-trainmodel.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_CombTR.pth"), map_location=torch.device('cpu')), strict=False)
+model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
+model3.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
+trainmodel.load_state_dict(torch.load(os.path.join("./", "best_CombTR.pth"), map_location=torch.device('cpu')), strict=False)
 
 def validation(epoch_iterator_val):
     trainmodel.eval()
@@ -87,7 +87,7 @@ def validation(epoch_iterator_val):
     with torch.no_grad():
         for batch in epoch_iterator_val:
             with autocast():
-                val_inputs, val_labels = batch["image"].cpu(), batch["label"].cpu()
+                val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
                 val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, device="cpu")
                 val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, device="cpu")
                 val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3, device="cpu")
@@ -119,11 +119,10 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
     epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
     epoch_iterator_val = tqdm(val_loader, desc="Validation (dice=X.X)", dynamic_ncols=True)
     dice_val = validation(epoch_iterator_val)
-    print(dice_val)
 
     for step, batch in enumerate(epoch_iterator):
         step += 1
-        x, y = (batch["image"], batch["label"])
+        x, y = (batch["image"].cuda(), batch["label"].cuda())
         
         val_outputs1 = model1(x)
         val_outputs2 = model2(x)
@@ -135,13 +134,11 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 
         val_outputs = trainmodel(val_outputs)
         loss = loss_function(val_outputs, y)
-
         
         loss.backward()
         epoch_loss += loss.item()
         optimizer.step()
         optimizer.zero_grad()
-        val_outputs.detach().cpu()
         
         epoch_iterator.set_description("Training (%d / %d Steps) (loss=%2.5f)" % (global_step, max_iterations, loss))
         if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:

@@ -18,7 +18,7 @@ from monai.utils.misc import set_determinism
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
+set_determinism(seed=0)
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
 

@@ -161,7 +161,7 @@ def get_valloader(amin=-200, amax=200, bmin=0.0, bmax=1.0):
         ]
     )
 
-    datadir = "./data/"
+    datadir = "/home/ian/Desktop/research/data/"
     json = "dataset_0.json"
     datasets = datadir + json
     val_files = load_decathlon_datalist(datasets, True, "validation")
@@ -194,7 +194,7 @@ def get_valds():
         ]
     )
 
-    datadir = "./data/"
+    datadir = "/home/ian/Desktop/research/data/"
     json = "dataset_0.json"
     datasets = datadir + json
     val_files = load_decathlon_datalist(datasets, True, "validation")
@@ -210,7 +210,7 @@ def get_noprocess():
         ]
     )
 
-    datadir = "./data/"
+    datadir = "/home/ian/Desktop/research/data/"
     json = "dataset_0.json"
     datasets = datadir + json
     files = load_decathlon_datalist(datasets, True, "validation")
