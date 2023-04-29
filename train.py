@@ -52,9 +52,9 @@ model = UNETR(
     dropout_rate=0.0,
 ).to(device)
 
-model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research", "best_swinUNETR.pth"), map_location=torch.device('cpu')))
-model.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research", "bestSEGRESNET.pth"), map_location=torch.device('cpu')))
+model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth"), map_location=torch.device('cpu')))
+model.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth"), map_location=torch.device('cpu')))
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 scaler = torch.cuda.amp.GradScaler()
