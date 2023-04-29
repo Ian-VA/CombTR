@@ -18,6 +18,7 @@ from monai.metrics import DiceMetric
 from tqdm import tqdm
 from metalearner import CombTRMetaLearner
 import pandas as pd
+from monai.utils.misc import set_determinism
 
 from monai.transforms import (
     Compose,
@@ -27,6 +28,7 @@ from monai.transforms import (
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+set_determinism(seed=0)
 
 trainmodel = SwinUNETR(
     img_size=(96, 96, 96),
@@ -72,9 +74,10 @@ torch.backends.cudnn.benchmark = True
 
 optimizer = torch.optim.AdamW(trainmodel.parameters(), lr=1e-4, weight_decay=1e-5)
 
-model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth")), strict=False)
-model3.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth")), strict=False)
-model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")), strict=False)
+model1.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_swinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
+model3.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+model2.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
+trainmodel.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_CombTR.pth"), map_location=torch.device('cpu')), strict=False)
 
 def validation(epoch_iterator_val):
     trainmodel.eval()
@@ -85,14 +88,14 @@ def validation(epoch_iterator_val):
         for batch in epoch_iterator_val:
             with autocast():
                 val_inputs, val_labels = batch["image"].cpu(), batch["label"].cpu()
-                val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, sw_device="cuda", device="cpu")
-                val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, sw_device="cuda", device="cpu")
-                val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3, sw_device="cuda", device="cpu")
+                val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, device="cpu")
+                val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, device="cpu")
+                val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3, device="cpu")
 
                 valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)
                 val_outputs = torch.mean(valalloutputs, dim=1)
             
-                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, trainmodel,  sw_device="cuda", device="cpu")
+                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, trainmodel, device="cpu")
                 val_labels_list = decollate_batch(val_labels)
                 val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
                 
@@ -110,14 +113,17 @@ def validation(epoch_iterator_val):
 
 
 def train(global_step, train_loader, val_loader, dice_val_best, global_step_best, loss_best):
-    trainmodel.train()
     epoch_loss = 0
     step = 0
 
     epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
+    epoch_iterator_val = tqdm(val_loader, desc="Validation (dice=X.X)", dynamic_ncols=True)
+    dice_val = validation(epoch_iterator_val)
+    print(dice_val)
+
     for step, batch in enumerate(epoch_iterator):
         step += 1
-        x, y = (batch["image"].cuda(), batch["label"].cuda())
+        x, y = (batch["image"], batch["label"])
         
         val_outputs1 = model1(x)
         val_outputs2 = model2(x)
