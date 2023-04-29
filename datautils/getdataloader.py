@@ -107,6 +107,8 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     num = 5
     folds = list(range(num))
+
+    """
     cvdataset = CrossValidation(
         dataset_cls=CVDataset,
         nfolds=5,
@@ -122,15 +124,16 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     train_dss = [cvdataset.get_dataset(folds=folds[0:i] + folds[(i + 1) :]) for i in folds]
     val_dss = [cvdataset.get_dataset(folds=i, transform=val_transforms) for i in range(num)]
-
-    #train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=24, cache_rate=1.0, num_workers=2)
     train_loaders = [ThreadDataLoader(train_dss[i], num_workers=1, batch_size=1, shuffle=True) for i in folds]
-    #val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=6, cache_rate=1.0, num_workers=2)
     val_loaders = [ThreadDataLoader(val_dss[i], num_workers=1, batch_size=1) for i in folds]
-
+    """
+    train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=24, cache_rate=1.0, num_workers=2)
+    val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=6, cache_rate=1.0, num_workers=2)
+    train_loader = ThreadDataloader(train_ds, num_workers=0, batch_size=4, shuffle=True)
+    val_loader = ThreadDataLoader(val_ds, num_workers=0, batch_size=1)
     set_track_meta(False)
 
-    return train_loaders, val_loaders
+    return train_loader, val_loader
 
 def get_valloader(amin=-200, amax=200, bmin=0.0, bmax=1.0):
     val_transforms = Compose(
@@ -158,7 +161,7 @@ def get_valloader(amin=-200, amax=200, bmin=0.0, bmax=1.0):
         ]
     )
 
-    datadir = "/home/ian/Desktop/research/data/"
+    datadir = "./data/"
     json = "dataset_0.json"
     datasets = datadir + json
     val_files = load_decathlon_datalist(datasets, True, "validation")
@@ -191,7 +194,7 @@ def get_valds():
         ]
     )
 
-    datadir = "/home/ian/Desktop/research/data/"
+    datadir = "./data/"
     json = "dataset_0.json"
     datasets = datadir + json
     val_files = load_decathlon_datalist(datasets, True, "validation")
@@ -207,7 +210,7 @@ def get_noprocess():
         ]
     )
 
-    datadir = "/home/ian/Desktop/research/data/"
+    datadir = "./data/"
     json = "dataset_0.json"
     datasets = datadir + json
     files = load_decathlon_datalist(datasets, True, "validation")

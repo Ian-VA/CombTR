@@ -82,10 +82,10 @@ model3 = UNETR(
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 
-model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research", "best_swinUNETR.pth"), map_location=torch.device('cpu')))
-model3.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research", "bestSEGRESNET.pth"), map_location=torch.device('cpu')))
-trainmodel.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research", "best_CombTR.pth"), map_location=torch.device('cpu')))
+model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth"), map_location=torch.device('cpu')))
+model3.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
+model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth"), map_location=torch.device('cpu')))
+trainmodel.load_state_dict(torch.load(os.path.join("./", "best_CombTR.pth"), map_location=torch.device('cpu')))
 
 case_num = 5
 post_label = AsDiscrete(to_onehot=14)
