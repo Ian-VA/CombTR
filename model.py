@@ -79,20 +79,18 @@ class CombTR(nn.Module):
         
         self.meta = SwinUNETR(
             img_size=img_size,
-            in_channels=in_channels,
+            in_channels=14,
             out_channels=out_channels,
             feature_size=48,
             use_checkpoint=True,
         ).to(device)
 
-        """
-        Uncomment if reproducing results in research paper:
 
-        self.swinunetr.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth")))
-        self.segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
-        self.unetr.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth")), strict=False)
-        self.meta.load_state_dict(torch.load(os.path.join("./", "best_CombTR.pth")))
-        """
+        self.swinunetr.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
+        self.segresnet.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
+        self.unetr.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth"), map_location=torch.device('cpu')), strict=False)
+        self.meta.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestCombTR.pth"), map_location=torch.device('cpu')), strict=False)
+        
 
 
     def forward(self, x_in):

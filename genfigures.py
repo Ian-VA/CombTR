@@ -31,7 +31,7 @@ from monai.transforms import (
 set_determinism(seed=0)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model4 = CombTR(in_channels=1, out_channels=14, img_size=(96, 96, 96))
+model4 = CombTR(in_channels=1, out_channels=14, img_size=(96, 96, 96)).to(device)
 
 model2 = SegResNet(
     spatial_dims=3,
@@ -64,9 +64,9 @@ model3 = UNETR(
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 
-model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth")))
-model3.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth")), strict=False)
-model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth")))
+model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth"), map_location=torch.device('cpu')))
+model3.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth"), map_location=torch.device('cpu')), strict=False)
+model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')))
 
 post_label = AsDiscrete(to_onehot=14)
 post_pred = AsDiscrete(argmax=True, to_onehot=14)
@@ -87,7 +87,7 @@ def illustratenodice():
     model1.eval()
     model2.eval()
     model3.eval()
-    trainmodel.eval()
+    model4.eval()
 
     val_ds = get_valds()
     with torch.no_grad():
@@ -101,12 +101,11 @@ def illustratenodice():
                 val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, device="cpu")
                 val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, device="cpu")
                 val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3,  device="cpu")
-                controloutput = sliding_window_inference(val_inputs, (96, 96, 96), 1, control, device="cpu")
 
                 valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)
                 val_outputs = torch.mean(valalloutputs, dim=1)
                 
-                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, trainmodel, device="cpu")
+                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, model4, device="cpu")
 
         val_labelfordice = val_labels
         val_labels = val_labels.cpu().numpy()[0, 0, :, :, slice_map[img_name]]

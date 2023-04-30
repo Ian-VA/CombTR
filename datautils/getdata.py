@@ -23,7 +23,7 @@ from monai.apps import CrossValidation
 from monai.data import Dataset, DataLoader, load_decathlon_datalist, CacheDataset, ThreadDataLoader, set_track_meta
 set_determinism(seed=0)
 
-datadir = "./data"
+datadir = "/home/ian/Desktop/research/data/"
 
 def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -106,9 +106,9 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
     val_files = load_decathlon_datalist(datasets, True, "validation")
 
 
-    train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=24, cache_rate=1.0, num_workers=2)
-    val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=6, cache_rate=1.0, num_workers=2)
-    train_loader = ThreadDataloader(train_ds, num_workers=0, batch_size=4, shuffle=True)
+    train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=1, cache_rate=1.0, num_workers=2)
+    val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=1, cache_rate=1.0, num_workers=2)
+    train_loader = ThreadDataLoader(train_ds, num_workers=0, batch_size=4, shuffle=True)
     val_loader = ThreadDataLoader(val_ds, num_workers=0, batch_size=1)
     set_track_meta(False)
 

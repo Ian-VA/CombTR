@@ -57,9 +57,6 @@ model = UNETR(
 
 model3 = CombTR(1, 14, (96, 96, 96)).to(device)
 
-model1.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
-model.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth")), strict=False)
-model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
 
 train_loader, val_loader = getdataloaders()
 epoch_iterator_val = tqdm(val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True)
@@ -135,7 +132,7 @@ def validation3(epoch_iterator_val):
     model3.eval()
     with torch.no_grad():
         for batch in epoch_iterator_val:
-            val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
+            val_inputs, val_labels = (batch["image"].cpu(), batch["label"].cpu())
             with torch.cuda.amp.autocast():
                 val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model3)
             val_labels_list = decollate_batch(val_labels)
@@ -153,7 +150,4 @@ def validation3(epoch_iterator_val):
     print(mean_dice_val)
     return mean_dice_val
 
-validation(epoch_iterator_val)
-validation1(epoch_iterator_val)
-validation2(epoch_iterator_val)
 validation3(epoch_iterator_val)
