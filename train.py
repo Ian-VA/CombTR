@@ -8,7 +8,7 @@ import torch
 from monai.data import decollate_batch
 from tqdm import tqdm
 from monai.transforms import AsDiscrete
-from datautils.getdataloader import getdataloaders
+from datautils.getdata import getdataloaders
 import csv
 from metalearner import CombTRMetaLearner
 from torchvision.models.segmentation import deeplabv3_resnet50
@@ -16,27 +16,13 @@ from model import CombTR
 import pandas as pd
 from monai.utils.misc import set_determinism
 
+### TRAINING FILE USED FOR ALL MODELS IN COMBTR
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 set_determinism(seed=0)
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
-
-model2 = SegResNet(
-    spatial_dims=3,
-    in_channels=1,
-    out_channels=14,
-    init_filters=16
-).to(device)
-
-
-model1 = SwinUNETR(
-    img_size=(96, 96, 96),
-    in_channels=1,
-    out_channels=14,
-    feature_size=48,
-    use_checkpoint=True,
-).to(device)
 
 model = UNETR(
     in_channels=1,
@@ -52,21 +38,19 @@ model = UNETR(
     dropout_rate=0.0,
 ).to(device)
 
-model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth"), map_location=torch.device('cpu')))
-model.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth"), map_location=torch.device('cpu')))
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 scaler = torch.cuda.amp.GradScaler()
 set_determinism(seed=0)
+root_dir = "./" # !! change if desired
 
 def validation(epoch_iterator_val):
-    model.eval()
+    model.eval() # !! change for model
     with torch.no_grad():
         for batch in epoch_iterator_val:
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
             with torch.cuda.amp.autocast():
-                val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model)
+                val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model) # !! change for model
             val_labels_list = decollate_batch(val_labels)
             val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
             val_outputs_list = decollate_batch(val_outputs)
@@ -76,15 +60,11 @@ def validation(epoch_iterator_val):
         mean_dice_val = dice_metric.aggregate().item()
         dice_metric.reset()
 
-    f = open('dice.txt', 'a+')
-    f.write(str(mean_dice_val))
-    f.close()
-    print(mean_dice_val)
     return mean_dice_val
 
 
 def train(global_step, train_loader, val_loader, dice_val_best, global_step_best):
-    model.train()
+    model.train() # !! change for model
     epoch_loss = 0
     step = 0
     epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
@@ -93,7 +73,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
         step += 1
         x, y = (batch["image"].cuda(), batch["label"].cuda())
         with torch.cuda.amp.autocast():
-            logit_map = model(x)
+            logit_map = model(x) # !! change for model
             loss = loss_function(logit_map, y)
         scaler.scale(loss).backward()
         epoch_loss += loss.item()
@@ -111,7 +91,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
             if dice_val > dice_val_best:
                 dice_val_best = dice_val
                 global_step_best = global_step
-                torch.save(model.state_dict(), os.path.join(root_dir, "best_metric_model.pth"))
+                torch.save(model1.state_dict(), os.path.join(root_dir, "best.pth")) # !! change if desired
                 print(
                     "Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
                 )
@@ -125,7 +105,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
     return global_step, dice_val_best, global_step_best
 
 if __name__ == '__main__':
-    max_iterations = 30000
+    max_iterations = 10000
     eval_num = 500
     post_label = AsDiscrete(to_onehot=14)
     post_pred = AsDiscrete(argmax=True, to_onehot=14)
@@ -143,18 +123,4 @@ if __name__ == '__main__':
 
     model.load_state_dict(torch.load(os.path.join(root_dir, "best_metric_model.pth")))
 
-    plt.figure("train", (12, 6))
-    plt.subplot(1, 2, 1)
-    plt.title("Iteration Average Loss")
-    x = [eval_num * (i + 1) for i in range(len(epoch_loss_values))]
-    y = epoch_loss_values
-    plt.xlabel("Iteration")
-    plt.plot(x, y)
-    plt.subplot(1, 2, 2)
-    plt.title("Val Mean Dice")
-    x = [eval_num * (i + 1) for i in range(len(metric_values))]
-    y = metric_values
-    plt.xlabel("Iteration")
-    plt.plot(x, y)
-    plt.show()
-
+# UNETR: 0.793, SwinUNETR: 0.842, SegResNet: 0.80, CombTR: 0.853

@@ -1,20 +1,21 @@
 from typing import Sequence, Tuple, Union
-
 import torch.nn as nn
-
 from monai.networks.nets import UNETR, SwinUNETR, SegResNet
 from metalearner import CombTRMetaLearner
 import torch as torch
 import os
 import numpy as np
 from monai.inferers import sliding_window_inference
+from monai.utils.misc import set_determinism
+
+set_determinism(seed=0)
 
 class CombTR(nn.Module):
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        img_size: Union[Sequence[int], int],
+        in_channels: 1,
+        out_channels: 14,
+        img_size: (96, 96, 96),
         feature_size: int = 16,
         hidden_size: int = 768,
         mlp_dim: int = 3072,
@@ -24,6 +25,7 @@ class CombTR(nn.Module):
         dropout_rate: float = 0.0,
         spatial_dims: int = 3,
         qkv_bias: bool = False,
+        segresnet_filters = 16
     ) -> None:
         """
         Args:
@@ -41,9 +43,26 @@ class CombTR(nn.Module):
         """
 
         super().__init__()
+        
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if hidden_size % num_heads != 0:
             raise ValueError("hidden_size should be divisible by num_heads")
+
+        self.segresnet = SegResNet(
+            spatial_dims=spatial_dims,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            init_filters=segresnet_filters
+        ).to(device)
+
+        self.swinunetr = SwinUNETR(
+            img_size=img_size,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            feature_size=feature_size,
+            use_checkpoint=True,
+        ).to(device)
 
         self.unetr = UNETR(
             in_channels=in_channels,
@@ -53,37 +72,28 @@ class CombTR(nn.Module):
             hidden_size=hidden_size,
             mlp_dim=mlp_dim,
             num_heads=num_heads,
-            pos_embed=pos_embed,
-            norm_name=norm_name,
-            dropout_rate=dropout_rate,
-            spatial_dims=spatial_dims,
-            qkv_bias=qkv_bias
-        )
-
- 
-        self.swinunetr = SwinUNETR(
+            pos_embed="perceptron",
+            norm_name="instance",
+            res_block=True,
+            dropout_rate=0.0,
+        ).to(device)
+        
+        self.meta = SwinUNETR(
             img_size=img_size,
             in_channels=in_channels,
             out_channels=out_channels,
-            feature_size=48
-        )
+            feature_size=feature_size,
+            use_checkpoint=True,
+        ).to(device)
 
-        self.segresnet = SegResNet(
-            spatial_dims=spatial_dims,
-            in_channels=in_channels,
-            out_channels=out_channels,
-            init_filters=16
-        )
-        
-        self.meta = CombTRMetaLearner(
-            n_channels=14,
-            n_classes=out_channels
-        )
+        """
+        Uncomment if reproducing results in research paper:
 
-        self.swinunetr.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_swinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
-        self.segresnet.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
-        self.unetr.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-        self.meta.load_state_dict(torch.load(os.path.join("C:/Users/mined/Downloads/", "best_CombTRc.pth"), map_location=torch.device('cpu')), strict=False)
+        self.swinunetr.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth")))
+        self.segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
+        self.unetr.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth")), strict=False)
+        self.meta.load_state_dict(torch.load(os.path.join("./", "best_CombTR.pth")))
+        """
 
 
     def forward(self, x_in):

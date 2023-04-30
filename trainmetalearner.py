@@ -1,7 +1,7 @@
 from monai.inferers import sliding_window_inference
 from monai.networks.nets import UNETR, SegResNet, UNet, SwinUNETR
 import torch
-from datautils.getdataloader import getdataloaders, get_valds, get_noprocess
+from datautils.getdata import getdataloaders, get_valds, get_noprocess
 import os
 from monai.data import decollate_batch
 from os import path
@@ -19,13 +19,14 @@ from tqdm import tqdm
 from metalearner import CombTRMetaLearner
 import pandas as pd
 from monai.utils.misc import set_determinism
-
 from monai.transforms import (
     Compose,
     Activations,
     AsDiscrete,
     SaveImage
 )
+
+### FILE USED FOR TRAINING META LEARNER AKA LEVEL-1 MODEL
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 set_determinism(seed=0)
@@ -74,10 +75,9 @@ torch.backends.cudnn.benchmark = True
 
 optimizer = torch.optim.AdamW(trainmodel.parameters(), lr=1e-4, weight_decay=1e-5)
 
-model1.load_state_dict(torch.load(os.path.join("./", "best_swinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
-model3.load_state_dict(torch.load(os.path.join("./", "realunetrmodel.pth"), map_location=torch.device('cpu')), strict=False)
-model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
-trainmodel.load_state_dict(torch.load(os.path.join("./", "best_CombTR.pth"), map_location=torch.device('cpu')), strict=False)
+model1.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
+model3.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth"), strict=False))
+model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
 
 def validation(epoch_iterator_val):
     trainmodel.eval()
@@ -124,18 +124,19 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
         step += 1
         x, y = (batch["image"].cuda(), batch["label"].cuda())
         
-        val_outputs1 = model1(x)
-        val_outputs2 = model2(x)
-        val_outputs3 = model3(x)
-        
-        valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)              
-        val_outputs = torch.mean(valalloutputs, dim=1)
+        with autocast():
+            val_outputs1 = model1(x)
+            val_outputs2 = model2(x)
+            val_outputs3 = model3(x)
+            
+            valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)              
+            val_outputs = torch.mean(valalloutputs, dim=1)
 
+            val_outputs = trainmodel(val_outputs)
+            loss = loss_function(val_outputs, y)
+            
+            loss.backward()
 
-        val_outputs = trainmodel(val_outputs)
-        loss = loss_function(val_outputs, y)
-        
-        loss.backward()
         epoch_loss += loss.item()
         optimizer.step()
         optimizer.zero_grad()
@@ -150,7 +151,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
             if dice_val > dice_val_best:
                 dice_val_best = dice_val
                 global_step_best = global_step
-                torch.save(trainmodel.state_dict(), os.path.join(datadir, "best_CombTRb.pth"))
+                torch.save(trainmodel.state_dict(), os.path.join(datadir, "bestCombTRMetaLearner.pth"))
                 print(
                     "Saved Model! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
                 )
@@ -165,55 +166,10 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 
 
 
-def make_stackingdata(jsonfilename="C:/Users/mined/Desktop/projects/segmentationv2/stackingdata.json"):
-    trainloader, val_loader = getdataloaders()
-
-    i = 0
-    with torch.no_grad():
-        for step, batch in enumerate(val_loader):
-            if path.isfile(jsonfilename) is False:
-                raise Exception("json datafile not found")
-
-            val_inputs, val_labels = (batch["image"], batch["label"])
-            val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3)
-            val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1)
-            val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2)
-
-            valalloutputs = torch.cat((val_outputs1, val_outputs2, val_outputs3), 0)
-            val_outputs = torch.softmax(valalloutputs, 1).cpu().numpy()
-            val_outputs = np.argmax(val_outputs, axis=1).astype(np.uint8)[0]
-            val_outputs = torch.from_numpy(val_outputs)
-            val_labels = val_labels.cpu().numpy()[0, 0, :, :, :]
-
-
-
-
-
-
-def plotdata(root_dir):
-    val_ds = get_valds()
-    no_process_ds = get_noprocess()
-    slice_map = {
-        "img0035.nii.gz": 170,
-        "img0036.nii.gz": 230,
-        "img0037.nii.gz": 204,
-        "img0038.nii.gz": 204,
-        "img0039.nii.gz": 204,
-        "img0040.nii.gz": 180,
-    }
-
-    nifti = nib.load("C:/Users/mined/Downloads/stackingdata/labelsTr/label_2.nii.gz").get_fdata()
-    
-    plt.figure("image", (18, 6))
-    plt.subplot(1, 2, 1)
-    plt.title("After Preprocessing")
-    plt.imshow(nifti[:, :, 59])
-    plt.show()
-
 
 if __name__ == "__main__":
     datadir = "./" # replace with your dataset directory
-    max_iterations = 25000
+    max_iterations = 10000
     eval_num = 500
     post_label = AsDiscrete(to_onehot=14)
     post_pred = AsDiscrete(argmax=True, to_onehot=14)
@@ -228,8 +184,3 @@ if __name__ == "__main__":
     
     while (global_step < max_iterations):
         global_step, dice_val_best, global_step_best, loss_best = train(global_step, train_loader, val_loader, dice_val_best, global_step_best, loss_best)
-        
-    df = pd.DataFrame(epoch_loss_values)
-    df.to_csv("epochloss.csv", index=False)
-    df1 = pd.DataFrame(metric_values)
-    df1.to_csv("dicecoefficient.csv", index=False)
