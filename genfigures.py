@@ -64,9 +64,9 @@ model3 = UNETR(
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 
-model1.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
-model3.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth")), strict=False)
-model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
+model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth")))
+model3.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth")), strict=False)
+model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth")))
 
 post_label = AsDiscrete(to_onehot=14)
 post_pred = AsDiscrete(argmax=True, to_onehot=14)
