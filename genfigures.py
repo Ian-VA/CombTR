@@ -1,7 +1,7 @@
 from monai.inferers import sliding_window_inference
 from monai.networks.nets import UNETR, SegResNet, UNet, SwinUNETR
 import torch
-from datautils.getdataloader import getdataloaders, get_valds, get_noprocess, get_valloader
+from datautils.getdata import getdataloaders, get_valds, get_noprocess, get_valloader
 import os
 from monai.data import decollate_batch
 from os import path
@@ -16,7 +16,6 @@ from monai.inferers import sliding_window_inference
 from torch.cuda.amp import autocast
 from monai.metrics import DiceMetric
 from tqdm import tqdm
-from metalearner import CombTRMetaLearner
 import pandas as pd
 from model import CombTR
 from monai.utils.misc import set_determinism
@@ -120,22 +119,22 @@ def illustratenodice():
         plt.imshow(val_labels, cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 1)
-        plt.title("SegResNet")
+        plt.title("SegResNet: 0.80")
         plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
         plt.imshow(torch.argmax(val_outputs2, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 2)
-        plt.title("Swin UNETR")
+        plt.title("Swin UNETR: 0.842")
         plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
         plt.imshow(torch.argmax(val_outputs1, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 3)
-        plt.title("UNETR")
+        plt.title("UNETR: 0.793")
         plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
         plt.imshow(torch.argmax(val_outputs3, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 4)
-        plt.title("CombTR")
+        plt.title("CombTR: 0.853")
         plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
         plt.imshow(torch.argmax(val_outputs, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
@@ -229,23 +228,23 @@ def illustrate():
     plt.imshow(val_inputs.cpu().numpy()[0, :, :, slice_map[img_name]], cmap="gray")
     plt.imshow(val_labels, cmap='jet', alpha=0.5)
     plt.subplot(1, 5, 2)
-    plt.title("SwinUNETR Output: " + str(round(mean_dice_val1, 3)))
+    plt.title("SwinUNETR: " + str(round(mean_dice_val1, 3)))
     plt.imshow(val_inputs.cpu().numpy()[0, :, :, slice_map[img_name]], cmap="gray")
     plt.imshow(val_outputs1, cmap='jet', alpha=0.5)
     plt.subplot(1, 5, 3)
-    plt.title("SegResNet Output: " + str(round(mean_dice_val2, 3)))
+    plt.title("SegResNet: " + str(round(mean_dice_val2, 3)))
     plt.imshow(val_inputs.cpu().numpy()[0, :, :, slice_map[img_name]], cmap="gray")
     plt.imshow(val_outputs2, cmap='jet', alpha=0.5)
     plt.subplot(1, 5, 4)
-    plt.title("UNETR Output: " + str(round(mean_dice_val3, 3)))
+    plt.title("UNETR: " + str(round(mean_dice_val3, 3)))
     plt.imshow(val_inputs.cpu().numpy()[0, :, :, slice_map[img_name]], cmap="gray")
     plt.imshow(val_outputs3, cmap='jet', alpha=0.5)
     plt.subplot(1, 5, 5)
-    plt.title("CombTR Output: " + str(round(mean_dice_val4, 3)))
+    plt.title("CombTR: " + str(round(mean_dice_val4, 3)))
     plt.imshow(val_inputs.cpu().numpy()[0, :, :, slice_map[img_name]], cmap="gray")
     plt.imshow(val_outputs, cmap='jet', alpha=0.5)
     plt.show()
 
 
 if __name__ == '__main__':
-    illustrate()
+    illustratenodice()

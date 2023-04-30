@@ -10,7 +10,6 @@ from tqdm import tqdm
 from monai.transforms import AsDiscrete
 from datautils.getdata import getdataloaders
 import csv
-from metalearner import CombTRMetaLearner
 from torchvision.models.segmentation import deeplabv3_resnet50
 from model import CombTR
 import pandas as pd

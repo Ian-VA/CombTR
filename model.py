@@ -1,7 +1,6 @@
 from typing import Sequence, Tuple, Union
 import torch.nn as nn
 from monai.networks.nets import UNETR, SwinUNETR, SegResNet
-from metalearner import CombTRMetaLearner
 import torch as torch
 import os
 import numpy as np
@@ -60,7 +59,7 @@ class CombTR(nn.Module):
             img_size=img_size,
             in_channels=in_channels,
             out_channels=out_channels,
-            feature_size=feature_size,
+            feature_size=48,
             use_checkpoint=True,
         ).to(device)
 
@@ -82,7 +81,7 @@ class CombTR(nn.Module):
             img_size=img_size,
             in_channels=in_channels,
             out_channels=out_channels,
-            feature_size=feature_size,
+            feature_size=48,
             use_checkpoint=True,
         ).to(device)
 

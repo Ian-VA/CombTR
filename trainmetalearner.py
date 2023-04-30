@@ -16,7 +16,6 @@ from monai.inferers import sliding_window_inference
 from torch.cuda.amp import autocast
 from monai.metrics import DiceMetric
 from tqdm import tqdm
-from metalearner import CombTRMetaLearner
 import pandas as pd
 from monai.utils.misc import set_determinism
 from monai.transforms import (

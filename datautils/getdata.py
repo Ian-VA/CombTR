@@ -20,7 +20,6 @@ import torch
 
 from monai.utils.misc import set_determinism
 from monai.apps import CrossValidation
-from datautils.CVDataset import CVDataset
 from monai.data import Dataset, DataLoader, load_decathlon_datalist, CacheDataset, ThreadDataLoader, set_track_meta
 set_determinism(seed=0)
 
