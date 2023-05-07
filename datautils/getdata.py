@@ -30,7 +30,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     train_transforms = Compose(
         [
-            LoadImaged(keys=["image", "label"], ensure_channel_first=True),
+            LoadImaged(keys=["image", "label"], ensure_channel_first=True, image_only=False),
             ScaleIntensityRanged(
                 keys=["image"],
                 a_min=-175,
@@ -46,7 +46,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
                 pixdim=(1.5, 1.5, 2.0),
                 mode=("bilinear", "nearest"),
             ),
-            EnsureTyped(keys=["image", "label"], device=device, track_meta=False),
+            EnsureTyped(keys=["image", "label"], device=device),
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
@@ -95,8 +95,7 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
                 keys=["image", "label"],
                 pixdim=(1.5, 1.5, 2.0),
                 mode=("bilinear", "nearest"),
-            ),
-            EnsureTyped(keys=["image", "label"], device=device, track_meta=True),
+            )
         ]
     )
 
@@ -108,9 +107,8 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
 
     train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=1, cache_rate=1.0, num_workers=2)
     val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=1, cache_rate=1.0, num_workers=2)
-    train_loader = ThreadDataLoader(train_ds, num_workers=0, batch_size=4, shuffle=True)
-    val_loader = ThreadDataLoader(val_ds, num_workers=0, batch_size=1)
-    set_track_meta(False)
+    train_loader = DataLoader(train_ds, num_workers=0, batch_size=4, shuffle=True)
+    val_loader = DataLoader(val_ds, num_workers=0, batch_size=1)
 
     return train_loader, val_loader
 

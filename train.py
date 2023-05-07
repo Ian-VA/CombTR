@@ -10,7 +10,6 @@ from tqdm import tqdm
 from monai.transforms import AsDiscrete
 from datautils.getdata import getdataloaders
 import csv
-from torchvision.models.segmentation import deeplabv3_resnet50
 from model import CombTR
 import pandas as pd
 from monai.utils.misc import set_determinism
@@ -80,7 +79,6 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
         scaler.step(optimizer)
         scaler.update()
         optimizer.zero_grad()
-        epoch_iterator.set_description(f"Training ({global_step} / {max_iterations} Steps) (loss={loss:2.5f})")
         if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
             epoch_iterator_val = tqdm(val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True)
             dice_val = validation(epoch_iterator_val)
