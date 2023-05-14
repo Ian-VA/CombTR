@@ -24,6 +24,7 @@ from monai.data import Dataset, DataLoader, load_decathlon_datalist, CacheDatase
 set_determinism(seed=0)
 
 datadir = "/home/ian/Desktop/research/data/"
+json = "dataset_0.json"
 
 def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -99,16 +100,15 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
         ]
     )
 
-    json = "dataset_0.json"
     datasets = datadir + json
     datalist = load_decathlon_datalist(datasets, True, "training")
     val_files = load_decathlon_datalist(datasets, True, "validation")
 
 
-    train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=1, cache_rate=1.0, num_workers=2)
-    val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=1, cache_rate=1.0, num_workers=2)
-    train_loader = DataLoader(train_ds, num_workers=0, batch_size=4, shuffle=True)
-    val_loader = DataLoader(val_ds, num_workers=0, batch_size=1)
+    train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=1, cache_rate=1.0, num_workers=1) # increase as you wish depending on your hardware
+    val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=1, cache_rate=1.0, num_workers=1)
+    train_loader = ThreadDataLoader(train_ds, num_workers=0, batch_size=4, shuffle=True)
+    val_loader = ThreadDataLoader(val_ds, num_workers=0, batch_size=1)
 
     return train_loader, val_loader
 
@@ -138,7 +138,6 @@ def get_valloader(amin=-200, amax=200, bmin=0.0, bmax=1.0):
         ]
     )
 
-    json = "dataset_0.json"
     datasets = datadir + json
     val_files = load_decathlon_datalist(datasets, True, "validation")
     val_ds = Dataset(data=val_files, transform=val_transforms)
@@ -147,7 +146,7 @@ def get_valloader(amin=-200, amax=200, bmin=0.0, bmax=1.0):
         val_ds, 
         batch_size=1, 
         shuffle=False, 
-        num_workers=4, 
+        num_workers=1, 
         pin_memory=True
     )
 
@@ -170,7 +169,6 @@ def get_valds():
         ]
     )
 
-    json = "dataset_0.json"
     datasets = datadir + json
     val_files = load_decathlon_datalist(datasets, True, "validation")
     val_ds = Dataset(data=val_files, transform=val_transforms)
@@ -185,7 +183,6 @@ def get_noprocess():
         ]
     )
 
-    json = "dataset_0.json"
     datasets = datadir + json
     files = load_decathlon_datalist(datasets, True, "validation")
     ds = Dataset(data=files, transform=transforms)

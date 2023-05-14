@@ -87,14 +87,14 @@ def validation(epoch_iterator_val):
         for batch in epoch_iterator_val:
             with autocast():
                 val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
-                val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, device="cpu")
-                val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, device="cpu")
-                val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3, device="cpu")
+                val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, device="cuda")
+                val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, device="cuda")
+                val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3, device="cuda")
 
                 valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)
                 val_outputs = torch.mean(valalloutputs, dim=1)
             
-                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, trainmodel, device="cpu")
+                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, trainmodel, device="cuda")
                 val_labels_list = decollate_batch(val_labels)
                 val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
                 

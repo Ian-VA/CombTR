@@ -23,22 +23,28 @@ class CombTR(nn.Module):
         norm_name: Union[Tuple, str] = "instance",
         dropout_rate: float = 0.0,
         spatial_dims: int = 3,
-        qkv_bias: bool = False,
-        segresnet_filters = 16
+        segresnet_filters = 16,
+        metalearnerinput = 14,
+        swinfeaturesize = 48,
+        use_checkpointing = True
     ) -> None:
         """
         Args:
-            in_channels: dimension of input channels.
-            out_channels: dimension of output channels.
-            img_size: dimension of input image.
-            feature_size: dimension of network feature size.
+            in_channels: dimension of input channels for all base models.
+            out_channels: dimension of output channels for all base models.
+            img_size: dimension of input image for all models.
+            feature_size: dimension of network feature size for unetr.
             hidden_size: dimension of hidden layer.
             mlp_dim: dimension of feedforward layer.
             num_heads: number of attention heads.
             pos_embed: position embedding layer type.
             norm_name: feature normalization type and arguments.
-            dropout_rate: faction of the input units to drop.
+            dropout_rate: fraction of the input units to drop for all viable models.
             spatial_dims: number of spatial dims.
+            segresnetfilters: amount of filters for segresnet.
+            metalearnerinput: number of channels fed into the meta learner.
+            swinfeaturesize: dimension of network feature size for swinunetr.
+            use_checkpointing: use checkpointing for all viable models.
         """
 
         super().__init__()
@@ -59,8 +65,8 @@ class CombTR(nn.Module):
             img_size=img_size,
             in_channels=in_channels,
             out_channels=out_channels,
-            feature_size=48,
-            use_checkpoint=True,
+            feature_size=swinfeaturesize,
+            use_checkpoint=use_checkpointing,
         ).to(device)
 
         self.unetr = UNETR(
@@ -74,7 +80,7 @@ class CombTR(nn.Module):
             pos_embed="perceptron",
             norm_name="instance",
             res_block=True,
-            dropout_rate=0.0,
+            dropout_rate=dropout_rate
         ).to(device)
         
         self.meta = SwinUNETR(
@@ -82,15 +88,15 @@ class CombTR(nn.Module):
             in_channels=14,
             out_channels=out_channels,
             feature_size=48,
-            use_checkpoint=True,
+            use_checkpoint=use_checkpointing,
+            drop_rate=dropout_rate
         ).to(device)
 
 
-        self.swinunetr.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth"), map_location=torch.device('cpu')), strict=False)
-        self.segresnet.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')), strict=False)
-        self.unetr.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth"), map_location=torch.device('cpu')), strict=False)
-        self.meta.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestCombTR.pth"), map_location=torch.device('cpu')), strict=False)
-        
+        self.swinunetr.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
+        self.segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
+        self.unetr.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth")), strict=False)
+        self.meta.load_state_dict(torch.load(os.path.join("./", "bestCombTR.pth")))
 
 
     def forward(self, x_in):

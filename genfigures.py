@@ -64,9 +64,9 @@ model3 = UNETR(
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 
-model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth"), map_location=torch.device('cpu')))
-model3.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth"), map_location=torch.device('cpu')), strict=False)
-model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth"), map_location=torch.device('cpu')))
+model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth")))
+model3.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth")), strict=False)
+model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth")))
 
 post_label = AsDiscrete(to_onehot=14)
 post_pred = AsDiscrete(argmax=True, to_onehot=14)
@@ -94,18 +94,18 @@ def illustratenodice():
         img_name = os.path.split(val_ds[case_num]["image"].meta["filename_or_obj"])[1]
         img = val_ds[case_num]["image"]
         label = val_ds[case_num]["label"]
-        val_inputs = torch.unsqueeze(img, 1)
-        val_labels = torch.unsqueeze(label, 1)
+        val_inputs = torch.unsqueeze(img, 1).cuda()
+        val_labels = torch.unsqueeze(label, 1).cuda()
         
         with autocast():
-                val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, device="cpu")
-                val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, device="cpu")
-                val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3,  device="cpu")
+                val_outputs1 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model1, device="cuda")
+                val_outputs2 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model2, device="cuda")
+                val_outputs3 = sliding_window_inference(val_inputs, (96, 96, 96), 1, model3,  device="cuda")
 
                 valalloutputs = torch.stack((val_outputs1, val_outputs2, val_outputs3), 1)
                 val_outputs = torch.mean(valalloutputs, dim=1)
                 
-                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, model4, device="cpu")
+                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, model4, device="cuda")
 
         val_labelfordice = val_labels
         val_labels = val_labels.cpu().numpy()[0, 0, :, :, slice_map[img_name]]
@@ -114,28 +114,28 @@ def illustratenodice():
         plt.figure("check", (18, 6))
         plt.subplot(1, 5, 1)
         plt.title("Ground Truth")
-        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
+        plt.imshow(val_inputs.cuda().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
         plt.imshow(val_labels, cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 1)
-        plt.title("SegResNet: 0.80")
-        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
-        plt.imshow(torch.argmax(val_outputs2, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
+        plt.title("SegResNet")
+        plt.imshow(val_inputs.cuda().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
+        plt.imshow(torch.argmax(val_outputs2, dim=1).detach().cuda()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 2)
-        plt.title("Swin UNETR: 0.842")
-        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
-        plt.imshow(torch.argmax(val_outputs1, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
+        plt.title("Swin UNETR")
+        plt.imshow(val_inputs.cuda().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
+        plt.imshow(torch.argmax(val_outputs1, dim=1).detach().cuda()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 3)
-        plt.title("UNETR: 0.793")
-        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
-        plt.imshow(torch.argmax(val_outputs3, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
+        plt.title("UNETR")
+        plt.imshow(val_inputs.cuda().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
+        plt.imshow(torch.argmax(val_outputs3, dim=1).detach().cuda()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 4)
-        plt.title("CombTR: 0.853")
-        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
-        plt.imshow(torch.argmax(val_outputs, dim=1).detach().cpu()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
+        plt.title("CombTR")
+        plt.imshow(val_inputs.cuda().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
+        plt.imshow(torch.argmax(val_outputs, dim=1).detach().cuda()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.show()
 

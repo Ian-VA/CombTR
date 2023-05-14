@@ -20,8 +20,8 @@ from model import CombTR
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 post_label = AsDiscrete(to_onehot=14)
 post_pred = AsDiscrete(argmax=True, to_onehot=14)
-dice_metric = DiceMetric(include_background=True, reduction="mean", get_not_nans=False)
-set_determinism(seed=0)
+dice_metric = DiceMetric(include_background=True, reduction="none", get_not_nans=False) # reduction set for class-wise dice score, use "mean" for mean of all classes
+set_determinism(seed=0) 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
 
@@ -61,6 +61,10 @@ model3 = CombTR(1, 14, (96, 96, 96)).to(device)
 train_loader, val_loader = getdataloaders()
 epoch_iterator_val = tqdm(val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True)
 
+model1.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
+model.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth"), strict=False))
+model2.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
+
 
 def validation(epoch_iterator_val):
     model.eval()
@@ -69,44 +73,47 @@ def validation(epoch_iterator_val):
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
             with torch.cuda.amp.autocast():
                 val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model)
-            val_labels_list = decollate_batch(val_labels)
-            val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
-            val_outputs_list = decollate_batch(val_outputs)
-            val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
-            dice_metric(y_pred=val_output_convert, y=val_labels_convert)
-            epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (1, 10.0))
-        mean_dice_val = dice_metric.aggregate().item()
+                val_labels_list = decollate_batch(val_labels)
+                val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
+                val_outputs_list = decollate_batch(val_outputs)
+                val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
+                dice_metric(y_pred=val_output_convert, y=val_labels_convert)
+
+                for tensoroutput in val_output_convert: # get this off the GPU, not needed if you have enough memory
+                    tensoroutput.detach().cpu()
+
+                for tensorlabel in val_labels_convert:
+                    tensorlabel.detach().cpu()
+                epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (1, 10.0))
+        mean_dice_val = dice_metric.aggregate()
         dice_metric.reset()
 
-    f = open('dice.txt', 'a+')
-    f.write(str(mean_dice_val))
-    f.close()
     print(mean_dice_val)
-    return mean_dice_val
 
-def validation1(epoch_iterator_val):
     model1.eval()
     with torch.no_grad():
         for batch in epoch_iterator_val:
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
             with torch.cuda.amp.autocast():
                 val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model1)
-            val_labels_list = decollate_batch(val_labels)
-            val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
-            val_outputs_list = decollate_batch(val_outputs)
-            val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
-            dice_metric(y_pred=val_output_convert, y=val_labels_convert)
+                val_labels_list = decollate_batch(val_labels)
+                val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
+                val_outputs_list = decollate_batch(val_outputs)
+                val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
+                dice_metric(y_pred=val_output_convert, y=val_labels_convert)
+
+                for tensoroutput in val_output_convert: 
+                    tensoroutput.detach().cpu()
+
+                for tensorlabel in val_labels_convert:
+                    tensorlabel.detach().cpu()
+
             epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (1, 10.0))
         mean_dice_val = dice_metric.aggregate().item()
         dice_metric.reset()
 
-    f = open('dice.txt', 'a+')
-    f.write(str(mean_dice_val))
-    f.close()
     print(mean_dice_val)
-    return mean_dice_val
 
-def validation2(epoch_iterator_val):
     model2.eval()
     with torch.no_grad():
         for batch in epoch_iterator_val:
@@ -118,17 +125,20 @@ def validation2(epoch_iterator_val):
             val_outputs_list = decollate_batch(val_outputs)
             val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
             dice_metric(y_pred=val_output_convert, y=val_labels_convert)
+
+
+            for tensoroutput in val_output_convert: 
+                tensoroutput.detach().cpu()
+
+            for tensorlabel in val_labels_convert:
+                tensorlabel.detach().cpu()
+
             epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (1, 10.0))
         mean_dice_val = dice_metric.aggregate().item()
         dice_metric.reset()
 
-    f = open('dice.txt', 'a+')
-    f.write(str(mean_dice_val))
-    f.close()
     print(mean_dice_val)
-    return mean_dice_val
 
-def validation3(epoch_iterator_val):
     model3.eval()
     with torch.no_grad():
         for batch in epoch_iterator_val:
@@ -140,14 +150,17 @@ def validation3(epoch_iterator_val):
             val_outputs_list = decollate_batch(val_outputs)
             val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
             dice_metric(y_pred=val_output_convert, y=val_labels_convert)
+
+            for tensoroutput in val_output_convert:
+                    ensoroutput.detach().cpu()
+
+            for tensorlabel in val_labels_convert:
+                tensorlabel.detach().cpu()
+
             epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (1, 10.0))
         mean_dice_val = dice_metric.aggregate().item()
         dice_metric.reset()
 
-    f = open('dice.txt', 'a+')
-    f.write(str(mean_dice_val))
-    f.close()
     print(mean_dice_val)
-    return mean_dice_val
 
-validation3(epoch_iterator_val)
+validation(epoch_iterator_val)
