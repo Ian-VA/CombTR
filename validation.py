@@ -79,11 +79,12 @@ def validation(epoch_iterator_val):
                 val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
                 dice_metric(y_pred=val_output_convert, y=val_labels_convert)
 
-                for tensoroutput in val_output_convert: # get this off the GPU, not needed if you have enough memory
+                for tensoroutput in val_output_convert: # relieving the GPU, not needed if you have enough memory
                     tensoroutput.detach().cpu()
 
                 for tensorlabel in val_labels_convert:
                     tensorlabel.detach().cpu()
+
                 epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (1, 10.0))
         mean_dice_val = dice_metric.aggregate()
         dice_metric.reset()

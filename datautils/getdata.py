@@ -23,7 +23,7 @@ from monai.apps import CrossValidation
 from monai.data import Dataset, DataLoader, load_decathlon_datalist, CacheDataset, ThreadDataLoader, set_track_meta
 set_determinism(seed=0)
 
-datadir = "/home/ian/Desktop/research/data/"
+datadir = "./data/"
 json = "dataset_0.json"
 
 def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
