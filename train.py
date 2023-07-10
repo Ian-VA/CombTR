@@ -2,17 +2,15 @@ import os
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
-from monai.networks.nets import UNETR, SwinUNETR, UNet, SegResNet
-from monai.apps import DecathlonDataset
+from monai.networks.nets import UNETR
 import torch
 from monai.data import decollate_batch
 from tqdm import tqdm
 from monai.transforms import AsDiscrete
 from datautils.getdata import getdataloaders
-import csv
-from model import CombTR
-import pandas as pd
 from monai.utils.misc import set_determinism
+import gc
+from torch.cuda.amp import autocast
 
 ### TRAINING FILE USED FOR ALL MODELS IN COMBTR
 
@@ -21,11 +19,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 set_determinism(seed=0)
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
+image_size=(96, 96, 96)
 
 model = UNETR(
     in_channels=1,
     out_channels=14,
-    img_size=(96, 96, 96),
+    img_size=image_size,
     feature_size=16,
     hidden_size=768,
     mlp_dim=3072,
@@ -36,7 +35,6 @@ model = UNETR(
     dropout_rate=0.0,
 ).to(device)
 
-
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 scaler = torch.cuda.amp.GradScaler()
 set_determinism(seed=0)
@@ -44,11 +42,10 @@ root_dir = "./" # !! change if desired
 
 def validation(epoch_iterator_val):
     model.eval() # !! change for model
-    with torch.no_grad():
+    with torch.no_grad(), autocast():
         for batch in epoch_iterator_val:
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
-            with torch.cuda.amp.autocast():
-                val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model) # !! change for model
+            val_outputs = sliding_window_inference(val_inputs, image_size, 4, model) # !! change for model
             val_labels_list = decollate_batch(val_labels)
             val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
             val_outputs_list = decollate_batch(val_outputs)
@@ -60,7 +57,6 @@ def validation(epoch_iterator_val):
 
     return mean_dice_val
 
-
 def train(global_step, train_loader, val_loader, dice_val_best, global_step_best):
     model.train() # !! change for model
     epoch_loss = 0
@@ -70,15 +66,14 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
     for step, batch in enumerate(epoch_iterator):
         step += 1
         x, y = (batch["image"].cuda(), batch["label"].cuda())
-        with torch.cuda.amp.autocast():
+        with autocast():
             logit_map = model(x) # !! change for model
             loss = loss_function(logit_map, y)
-        scaler.scale(loss).backward()
-        epoch_loss += loss.item()
-        scaler.unscale_(optimizer)
-        scaler.step(optimizer)
-        scaler.update()
-        optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            epoch_loss += loss.item()
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
         if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
             epoch_iterator_val = tqdm(val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True)
             dice_val = validation(epoch_iterator_val)
@@ -88,7 +83,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
             if dice_val > dice_val_best:
                 dice_val_best = dice_val
                 global_step_best = global_step
-                torch.save(model1.state_dict(), os.path.join(root_dir, "best.pth")) # !! change if desired
+                torch.save(model.state_dict(), os.path.join(root_dir, "best.pth")) # !! change if desired
                 print(
                     "Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
                 )
@@ -99,6 +94,8 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
                     )
                 )
         global_step += 1
+        torch.cuda.empty_cache()
+        gc.collect()
     return global_step, dice_val_best, global_step_best
 
 if __name__ == '__main__':

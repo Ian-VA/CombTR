@@ -65,17 +65,17 @@ loss_function = DiceCELoss(to_onehot_y=True, softmax=True)
 torch.backends.cudnn.benchmark = True
 
 optimizer = torch.optim.AdamW(metalearner.parameters(), lr=1e-4, weight_decay=1e-5) # can experiment with lr and weight decay if desired, not the focus of the paper
+scaler = torch.cuda.amp.GradScaler()
 
 swinunetr.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
-unetr.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth")), strict=False) # strict has to be falsefor unetr's ViT
+unetr.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth")), strict=False) # strict has to be false for unetr's ViT
 segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
 model_list = [swinunetr, segresnet, unetr]
 
 def validation(epoch_iterator_val):
     metalearner.eval()
-    swinunetr.eval()
-    segresnet.eval()
-    unetr.eval()
+    [i.eval() for i in model_list]
+
     with (torch.no_grad(), autocast()):
         for batch in epoch_iterator_val:
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
@@ -104,7 +104,6 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 
     epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
     epoch_iterator_val = tqdm(val_loader, desc="Validation (dice=X.X)", dynamic_ncols=True)
-    dice_val = validation(epoch_iterator_val)
 
     for step, batch in enumerate(epoch_iterator):
         step += 1
@@ -122,12 +121,11 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
             val_outputs = metalearner(val_outputs) # input to the metalearner model
             loss = loss_function(val_outputs, y)
             
-            loss.backward()
+            scaler.scale(loss).backward()
+            epoch_loss += loss.item()
+            scaler.step(optimizer)
+            scaler.update()
 
-        epoch_loss += loss.item()
-        optimizer.step()
-        optimizer.zero_grad()
-        
         epoch_iterator.set_description("Training (%d / %d Steps) (loss=%2.5f)" % (global_step, max_iterations, loss))
         if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
             epoch_iterator_val = tqdm(val_loader, desc="Validation (dice=X.X)", dynamic_ncols=True)
