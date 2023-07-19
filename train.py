@@ -39,6 +39,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 scaler = torch.cuda.amp.GradScaler()
 set_determinism(seed=0)
 root_dir = "./" # !! change if desired
+filename = "best.pth"
 
 def validation(epoch_iterator_val): # validation for dice
     model.eval() # !! change for model
@@ -87,7 +88,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
                 if dice_val > dice_val_best:
                     dice_val_best = dice_val
                     global_step_best = global_step
-                    torch.save(model.state_dict(), os.path.join(root_dir, "best.pth")) # !! change if desired
+                    torch.save(model.state_dict(), os.path.join(root_dir, filename)) # !! change if desired
                     print(
                         "Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
                     )
@@ -118,7 +119,3 @@ if __name__ == '__main__':
 
     while global_step < max_iterations:
         global_step, dice_val_best, global_step_best = train(global_step, train_loader, val_loader, dice_val_best, global_step_best)
-
-    model.load_state_dict(torch.load(os.path.join(root_dir, "best_metric_model.pth")))
-
-# UNETR: 0.793, SwinUNETR: 0.842, SegResNet: 0.80, CombTR: 0.853

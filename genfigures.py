@@ -26,6 +26,7 @@ from monai.transforms import (
 
 set_determinism(seed=0)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+path = "/home/ian/Desktop/research/"
 
 model4 = CombTR(in_channels=1, out_channels=14, img_size=(96, 96, 96)).to(device)
 
@@ -60,9 +61,9 @@ model3 = UNETR(
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 
-model1.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestswinUNETR.pth")))
-model3.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestUNETR.pth")), strict=False)
-model2.load_state_dict(torch.load(os.path.join("/home/ian/Desktop/research/", "bestSEGRESNET.pth")))
+model1.load_state_dict(torch.load(os.path.join(path, "bestswinUNETR.pth")))
+model3.load_state_dict(torch.load(os.path.join(path, "bestUNETR.pth")), strict=False)
+model2.load_state_dict(torch.load(os.path.join(path, "bestSEGRESNET.pth")))
 model_list = [model1, model2, model3, model4]
 
 post_label = AsDiscrete(to_onehot=14)
@@ -118,15 +119,6 @@ def illustrate():
 
 
 def alldicescores():
-    slice_map = {
-        "img0035.nii.gz": 170,
-        "img0036.nii.gz": 230,
-        "img0037.nii.gz": 204,
-        "img0038.nii.gz": 204,
-        "img0039.nii.gz": 204,
-        "img0040.nii.gz": 180,
-    }
-    case_num = 0
     [i.eval() for i in model_list]
     valdl = get_valloader()
     epoch_iterator_val = tqdm(valdl, desc="Validation (dice=X.X)", dynamic_ncols=True)

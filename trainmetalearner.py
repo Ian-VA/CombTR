@@ -1,15 +1,14 @@
+from tqdm import tqdm
+import torch
+import os
 from monai.inferers import sliding_window_inference
 from monai.networks.nets import UNETR, SegResNet, SwinUNETR
-import torch
 from datautils.getdata import getdataloaders
-import os
 from monai.data import decollate_batch
-import torch
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
 from torch.cuda.amp import autocast
 from monai.metrics import DiceMetric
-from tqdm import tqdm
 from monai.utils.misc import set_determinism
 from monai.transforms import (
     Compose,
@@ -70,6 +69,7 @@ scaler = torch.cuda.amp.GradScaler()
 swinunetr.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
 unetr.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth")), strict=False) # strict has to be false for unetr's ViT
 segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
+
 model_list = [swinunetr, segresnet, unetr]
 
 def validation(epoch_iterator_val):
@@ -96,7 +96,6 @@ def validation(epoch_iterator_val):
     dice_metric.reset()
         
     return mean_dice_val
-
 
 def train(global_step, train_loader, val_loader, dice_val_best, global_step_best, loss_best):
     epoch_loss = 0
