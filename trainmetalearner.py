@@ -16,6 +16,7 @@ from monai.transforms import (
     AsDiscrete,
     SaveImage
 )
+from combtr import get_models
 
 ### FILE USED FOR TRAINING META LEARNERS AKA LEVEL-1 MODELS
 
@@ -31,34 +32,7 @@ metalearner = SwinUNETR(
     use_checkpoint=True,
 ).to(device)
 
-segresnet = SegResNet(
-    spatial_dims=3,
-    in_channels=1,
-    out_channels=14,
-    init_filters=16
-).to(device)
-
-swinunetr = SwinUNETR(
-    img_size=image_size,
-    in_channels=1,
-    out_channels=14,
-    feature_size=48,
-    use_checkpoint=True,
-).to(device)
-
-unetr = UNETR(
-    in_channels=1,
-    out_channels=14,
-    img_size=image_size,
-    feature_size=16,
-    hidden_size=768,
-    mlp_dim=3072,
-    num_heads=12,
-    pos_embed="perceptron",
-    norm_name="instance",
-    res_block=True,
-    dropout_rate=0.0,
-).to(device)
+models = get_models(1, 14, image_size)
 
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 torch.backends.cudnn.benchmark = True
@@ -66,20 +40,14 @@ torch.backends.cudnn.benchmark = True
 optimizer = torch.optim.AdamW(metalearner.parameters(), lr=1e-4, weight_decay=1e-5) # can experiment with lr and weight decay if desired, not the focus of the paper
 scaler = torch.cuda.amp.GradScaler()
 
-swinunetr.load_state_dict(torch.load(os.path.join("./", "bestswinUNETR.pth")))
-unetr.load_state_dict(torch.load(os.path.join("./", "bestUNETR.pth")), strict=False) # strict has to be false for unetr's ViT
-segresnet.load_state_dict(torch.load(os.path.join("./", "bestSEGRESNET.pth")))
-
-model_list = [swinunetr, segresnet, unetr]
-
 def validation(epoch_iterator_val):
     metalearner.eval()
-    [i.eval() for i in model_list]
+    [i.eval() for i in models]
 
     with (torch.no_grad(), autocast()):
         for batch in epoch_iterator_val:
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
-            val_outputs = [sliding_window_inference(val_inputs, image_size, 1, i, device="cuda") for i in model_list]
+            val_outputs = [sliding_window_inference(val_inputs, image_size, 1, i, device="cuda") for i in models]
 
             val_outputs = torch.mean(torch.stack((val_outputs), 1), dim=1)
         
@@ -112,7 +80,7 @@ def train(global_step, train_loader, val_loader, dice_val_best, global_step_best
 
             ### run inputs through respective models
 
-            val_outputs = [i(x) for i in model_list]
+            val_outputs = [i(x) for i in models]
             
             valalloutputs = torch.stack((val_outputs), 1) # stack along n-thh dimension
             val_outputs = torch.mean(valalloutputs, dim=1) # take mean along n-th dimension
