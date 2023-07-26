@@ -11,6 +11,7 @@ from datautils.getdata import getdataloaders
 from monai.utils.misc import set_determinism
 import gc
 from torch.cuda.amp import autocast
+from combtr import get_model
 
 ### TRAINING FILE USED FOR ALL MODELS IN COMBTR
 
@@ -58,50 +59,51 @@ def validation(epoch_iterator_val): # validation for dice
 
     return mean_dice_val
 
-def train(global_step, train_loader, val_loader, dice_val_best, global_step_best):
+def train(max_iterations):
     model.train() # !! change for model
     epoch_loss = 0
     step = 0
+    global_step = 0
     epoch_iterator = tqdm(train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True)
 
-    for step, batch in enumerate(epoch_iterator):
-        step += 1
-        x, y = (batch["image"].cuda(), batch["label"].cuda())
-        with autocast():
-            logit_map = model(x) # !! change for model
-            loss = loss_function(logit_map, y)
+    while global_step < max_iterations:
+        for step, batch in enumerate(epoch_iterator):
+            step += 1
+            x, y = (batch["image"].cuda(), batch["label"].cuda())
+            with autocast():
+                logit_map = model(x) # !! change for model
+                loss = loss_function(logit_map, y)
 
-            scaler.scale(loss).backward() # scaler for memory improvements, can be removed if wished
-            epoch_loss += loss.item()
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
+                scaler.scale(loss).backward() # scaler for memory improvements
+                epoch_loss += loss.item()
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
 
-            if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
-                epoch_iterator_val = tqdm(val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True)
-                dice_val = validation(epoch_iterator_val) # calculate dice score
-                epoch_loss /= step
+                if (global_step % eval_num == 0 and global_step != 0) or global_step == max_iterations:
+                    epoch_iterator_val = tqdm(val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True)
+                    dice_val = validation(epoch_iterator_val) # calculate dice score
+                    epoch_loss /= step
 
-                epoch_loss_values.append(epoch_loss)
-                metric_values.append(dice_val)
+                    epoch_loss_values.append(epoch_loss)
+                    metric_values.append(dice_val)
 
-                if dice_val > dice_val_best:
-                    dice_val_best = dice_val
-                    global_step_best = global_step
-                    torch.save(model.state_dict(), os.path.join(root_dir, filename)) # !! change if desired
-                    print(
-                        "Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
-                    )
-                else:
-                    print(
-                        "Model Was Not Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(
-                            dice_val_best, dice_val
+                    if dice_val > dice_val_best:
+                        dice_val_best = dice_val
+                        torch.save(model.state_dict(), os.path.join(root_dir, filename)) # !! change if desired
+                        print(
+                            "Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val)
                         )
-                )
-        global_step += 1
-        torch.cuda.empty_cache() # clean up cache for memory
-        gc.collect()
-    return global_step, dice_val_best, global_step_best
+                    else:
+                        print(
+                            "Model Was Not Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(
+                                dice_val_best, dice_val
+                            )
+                    )
+            global_step += 1
+            torch.cuda.empty_cache() # clean up cache for memory
+            gc.collect()
+    return model
 
 if __name__ == '__main__':
     max_iterations = 10000 
@@ -116,6 +118,3 @@ if __name__ == '__main__':
     metric_values = []
 
     train_loader, val_loader = getdataloaders()
-
-    while global_step < max_iterations:
-        global_step, dice_val_best, global_step_best = train(global_step, train_loader, val_loader, dice_val_best, global_step_best)
