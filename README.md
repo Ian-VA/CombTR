@@ -10,4 +10,4 @@ CombTR uses a "stacking" model architecture, where each model's output is the in
 This model beat previous research from NVIDIA researchers and others by 0.5-2% in DICE score, respectively.
 
 # Winner of Solano County Science Fair 2023
-# Winner of the UCLA Brain Research Institute Award (California State Science and Engineering Fair 2023)
+# Winner of the UCLA Brain Research Institute Award @ California State Science and Engineering Fair 2023
