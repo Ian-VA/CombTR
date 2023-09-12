@@ -1,4 +1,5 @@
 # CombTR
+![image](https://github.com/Ian-VA/CombTR/assets/53247327/c51e63d5-fee5-4c0b-9cd7-07e90f75df51)
 
 
 CombTR is an ensemble model developed to automatically segment 13 organs based off of 3D CT scans.
