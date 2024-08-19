@@ -104,7 +104,6 @@ def getdataloaders(amin=-200, amax=200, bmin=0.0, bmax=1.0):
     datalist = load_decathlon_datalist(datasets, True, "training")
     val_files = load_decathlon_datalist(datasets, True, "validation")
 
-
     train_ds = CacheDataset(data = datalist, transform = train_transforms, cache_num=1, cache_rate=1.0, num_workers=1) # increase as you wish depending on your hardware
     val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=1, cache_rate=1.0, num_workers=1)
     train_loader = ThreadDataLoader(train_ds, num_workers=0, batch_size=4, shuffle=True)

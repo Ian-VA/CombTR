@@ -13,7 +13,7 @@ from monai.inferers import sliding_window_inference
 from torch.cuda.amp import autocast
 from monai.metrics import DiceMetric
 from tqdm import tqdm
-from model import CombTR
+from combtr import CombTR
 from monai.utils.misc import set_determinism
 from monai.transforms import (
     Compose,
@@ -26,10 +26,12 @@ from monai.transforms import (
 
 set_determinism(seed=0)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cpu")
 path = "/home/ian/Desktop/research/"
 
 model4 = CombTR(in_channels=1, out_channels=14, img_size=(96, 96, 96)).to(device)
 
+"""
 model2 = SegResNet(
     spatial_dims=3,
     in_channels=1,
@@ -59,12 +61,15 @@ model3 = UNETR(
     dropout_rate=0.0,
 ).to(device)
 
+"""
 loss_function = DiceCELoss(to_onehot_y=True, softmax=True) 
 
+"""
 model1.load_state_dict(torch.load(os.path.join(path, "bestswinUNETR.pth")))
 model3.load_state_dict(torch.load(os.path.join(path, "bestUNETR.pth")), strict=False)
 model2.load_state_dict(torch.load(os.path.join(path, "bestSEGRESNET.pth")))
 model_list = [model1, model2, model3, model4]
+"""
 
 post_label = AsDiscrete(to_onehot=14)
 post_pred = AsDiscrete(argmax=True, to_onehot=14)
@@ -81,8 +86,10 @@ def illustrate():
     }
 
     case_num = 0
-    [i.eval() for i in model_list]
+    #[i.eval() for i in model_list]
 
+    model4.eval()
+    torch.cuda.memory_summary(device=None, abbreviated=False)
     val_ds = get_valds()
 
     with torch.no_grad():
@@ -93,12 +100,12 @@ def illustrate():
         val_labels = torch.unsqueeze(label, 1).cuda()
         
         with autocast():
-                val_outputs = [sliding_window_inference(val_inputs, (96, 96, 96), 1, i, device="cuda") for i in model_list]
+                #val_outputs = [sliding_window_inference(val_inputs, (96, 96, 96), 14, i, device="cuda") for i in model_list]
 
-                valalloutputs = torch.stack((val_outputs), 1)
-                val_outputs = torch.mean(valalloutputs, dim=1)
+                #valalloutputs = torch.stack((val_outputs), 1)
+                #val_outputs = torch.mean(valalloutputs, dim=1)
                 
-                val_outputs = sliding_window_inference(val_outputs, (96, 96, 96), 1, model4, device="cuda")
+                val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 1, model4, device="cuda")
 
         val_labelfordice = val_labels
         val_labels = val_labels.cpu().numpy()[0, 0, :, :, slice_map[img_name]]
@@ -107,16 +114,15 @@ def illustrate():
         plt.figure("check", (18, 6))
         plt.subplot(1, 5, 1)
         plt.title("Ground Truth")
-        plt.imshow(val_inputs.cuda().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
+        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
         plt.imshow(val_labels, cmap='jet', alpha=0.5)
 
         plt.subplot(1, 6, 4)
         plt.title("CombTR")
-        plt.imshow(val_inputs.cuda().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
-        plt.imshow(torch.argmax(val_outputs, dim=1).detach().cuda()[0, 0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
+        plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
+        plt.imshow(torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
 
         plt.show()
-
 
 def alldicescores():
     [i.eval() for i in model_list]

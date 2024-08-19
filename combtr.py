@@ -23,28 +23,29 @@ def get_models(
         dropout_rate: float = 0.0,
         spatial_dims: int = 3,
         segresnet_filters = 16,
+        num_heads: int = 12,
         metalearnerinput = 14,
         swinfeaturesize = 48,
         use_checkpointing = True
     ):
     return [SegResNet(
             spatial_dims=spatial_dims,
-            in_channels=in_channels,
-            out_channels=out_channels,
+            in_channels=1,
+            out_channels=14,
             init_filters=segresnet_filters
         ),
 
         SwinUNETR(
             img_size=img_size,
-            in_channels=in_channels,
-            out_channels=out_channels,
+            in_channels=1,
+            out_channels=14,
             feature_size=swinfeaturesize,
             use_checkpoint=use_checkpointing
         ),
 
         UNETR(
-            in_channels=in_channels,
-            out_channels=out_channels
+            in_channels=1,
+            out_channels=14,
             img_size=img_size,
             feature_size=feature_size,
             hidden_size=hidden_size,
@@ -54,9 +55,7 @@ def get_models(
             norm_name="instance",
             res_block=True,
             dropout_rate=dropout_rate
-        ),
-        
-    )]
+        )]
 
 class CombTR(nn.Module):
     def __init__(
@@ -74,7 +73,6 @@ class CombTR(nn.Module):
         spatial_dims: int = 3,
         segresnet_filters = 16,
         metalearnerinput = 14,
-        swinfeaturesize = 48,
         use_checkpointing = True
     ) -> None:
         """
@@ -96,35 +94,33 @@ class CombTR(nn.Module):
             raise ValueError("hidden_size should be divisible by num_heads")
 
         self.models = get_models(
-            in_channels,
-            out_channels,
-            img_size,
-            hidden_size,
-            mlp_dim,
-            num_heads,
-            pos_embed,
-            norm_name,
-            dropout_rate,
-            spatial_dims,
-            segresnet_filters,
-            metalearnerinput,
-            swinfeaturesize,
-            use_checkpointing
+            in_channels=in_channels,
+            out_channels=out_channels,
+            img_size=img_size,
+            mlp_dim=mlp_dim,
+            pos_embed=pos_embed,
+            norm_name=norm_name,
+            dropout_rate=dropout_rate,
+            spatial_dims=spatial_dims,
+            segresnet_filters=segresnet_filters,
+            metalearnerinput=metalearnerinput,
+            use_checkpointing=use_checkpointing
         )
 
         self.meta = SwinUNETR(
             img_size=img_size,
-            in_channels=in_channels,
+            in_channels=14,
             out_channels=out_channels,
-            feature_size=swinfeaturesize,
+            feature_size=48,
             use_checkpoint=use_checkpointing
         ).to(self.device)
 
         [i.to(self.device) for i in self.models]
 
         for i in range(0, len(self.models)):
-            self.models[i].load_state_dict(torch.load(os.path.join("./", "best" + get_model_names()[i])), strict=False)
+            self.models[i].load_state_dict(torch.load(os.path.join("best" + get_model_names()[i] + ".pth")), strict=False)
 
+        self.meta.load_state_dict(torch.load("bestCombTR.pth"), strict=False)
 
     def forward(self, x_in):
         x_out = [i(x_in) for i in self.models]
@@ -132,5 +128,3 @@ class CombTR(nn.Module):
         x_out = torch.mean(x_out, dim=1)
 
         return self.meta(x_out)
-
-
