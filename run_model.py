@@ -1,10 +1,8 @@
 from monai.inferers import sliding_window_inference
-from monai.networks.nets import UNETR, SegResNet, UNet, SwinUNETR
 import torch
-from datautils.getdata import getdataloaders, get_valds, get_noprocess, get_valloader
+from datautils.getdata import get_valds, get_valloader, get_single_file_dataloader
 import os
 from monai.data import decollate_batch
-from os import path
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,11 +14,9 @@ from tqdm import tqdm
 from combtr import CombTR
 from monai.utils.misc import set_determinism
 from monai.transforms import (
-    Compose,
-    Activations,
     AsDiscrete,
-    SaveImage
 )
+import pydicom as dicom
 
 #### THIS FILE IS USED FOR GENERATING FIGURES, NOT FOR MODEL EVALUATION
 
@@ -86,7 +82,6 @@ def illustrate():
     }
 
     case_num = 0
-    #[i.eval() for i in model_list]
 
     model4.eval()
     torch.cuda.memory_summary(device=None, abbreviated=False)
@@ -100,11 +95,6 @@ def illustrate():
         val_labels = torch.unsqueeze(label, 1).cuda()
         
         with autocast():
-                #val_outputs = [sliding_window_inference(val_inputs, (96, 96, 96), 14, i, device="cuda") for i in model_list]
-
-                #valalloutputs = torch.stack((val_outputs), 1)
-                #val_outputs = torch.mean(valalloutputs, dim=1)
-                
                 val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 1, model4, device="cuda")
 
         val_labelfordice = val_labels
@@ -112,17 +102,56 @@ def illustrate():
         val_labels = np.ma.masked_where(val_labels == 0., val_labels)
 
         plt.figure("check", (18, 6))
-        plt.subplot(1, 5, 1)
+        plt.subplot(1, 1, 1)
         plt.title("Ground Truth")
         plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
         plt.imshow(val_labels, cmap='jet', alpha=0.5)
 
-        plt.subplot(1, 6, 4)
+        model_output = torch.argmax(val_outputs, dim=1).detach().cpu().numpy()
+        plt.subplot(1, 3, 1)
         plt.title("CombTR")
         plt.imshow(val_inputs.cpu().numpy()[0, 0, :, :, slice_map[img_name]], cmap="gray")
-        plt.imshow(torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
+        plt.imshow(model_output[0, :, :, slice_map[img_name]], cmap='jet', alpha=0.5)
+
 
         plt.show()
+
+def get_transformed_dicom_as_array(file_name):
+    loader = get_single_file_dataloader(file_name)
+    data = torch.unsqueeze(loader[0]["image"], 1)
+
+    return data.cpu().numpy()
+
+
+def run_dicom_through_model(file_name):
+    model4.eval()
+    loader = get_single_file_dataloader(file_name)
+    val_outputs = None
+
+    with torch.no_grad(), autocast():
+        inputs = torch.unsqueeze(loader[0]["image"], 1).cuda()
+        outputs = sliding_window_inference(inputs, (96, 96, 96), 1, model4, device="cuda")
+
+    model_output = torch.argmax(outputs, dim=1).detach().cpu().numpy()
+
+    """
+
+    plt.figure("Validate", (18,6))
+    plt.subplot(1, 1, 1)
+    plt.title("Ground Truth")
+    slice_index = 207
+    plt.imshow(inputs.cpu().numpy()[0, 0, :, :, slice_index], cmap="gray")
+
+    model_output = torch.argmax(outputs, dim=1).detach().cpu().numpy()
+    plt.subplot(1, 3, 1)
+    plt.title("CombTR")
+    plt.imshow(inputs.cpu().numpy()[0, 0, :, :, slice_index], cmap="gray")
+    plt.imshow(model_output[0, :, :, slice_index], cmap='jet', alpha=0.5)
+
+    """
+
+    return model_output
+
 
 def alldicescores():
     [i.eval() for i in model_list]
@@ -145,5 +174,3 @@ def alldicescores():
                 dice_metric.reset()
             epoch_iterator_val.set_description("Validate (%d / %d Steps)" % (1, 10.0))
 
-if __name__ == '__main__':
-    illustrate()
