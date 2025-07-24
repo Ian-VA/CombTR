@@ -11,6 +11,3 @@ The following models are used:
 
 CombTR uses a "stacking" model architecture, where each model's output is the input into a meta-learner, which learns from the ensemble's mistakes and corrects them over time.
 This model beat previous research from NVIDIA and Vanderbilt University by 5% in DICE score.
-
-# Winner of Solano County Science Fair 2023
-# 3rd place UCLA Brain Research Institute Award @ California State Science and Engineering Fair 2023
